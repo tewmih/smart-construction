@@ -65,6 +65,31 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 The frontend expects a backend that implements the documented contract (e.g. auth, users, projects, tasks, logs). Adjust `NEXT_PUBLIC_API_BASE_URL` per environment. For local development, point it at your API origin; ensure CORS is configured on the server if the API runs on a different host or port.
 
+## Deploy to Vercel
+
+This frontend is set up for Vercel deploys. The whole project lives in a monorepo; the `web/` folder is the deployable.
+
+1. **Import the repo** in the Vercel dashboard → "Add New… → Project".
+2. **Root Directory** → set to `web`. Vercel auto-detects Next.js.
+3. **Build & install** are pinned in `vercel.json` — pnpm install + `pnpm run build` (Webpack).
+4. **Environment Variables** → add to all three environments (Production, Preview, Development):
+
+   | Key | Value |
+   |---|---|
+   | `NEXT_PUBLIC_API_BASE_URL` | `https://api.yourdomain.com/api/v1` (your EC2 backend) |
+   | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | your Google OAuth client ID (same as backend `GOOGLE_CLIENT_ID`) |
+
+   Vercel inlines `NEXT_PUBLIC_*` vars at build time. Changing them requires a redeploy.
+
+5. **Custom domain** (optional) → Domains → add `yourdomain.com`, follow the DNS instructions.
+
+6. **Backend hook-up** — the backend `.env` must allow your Vercel URLs:
+   - `BACKEND_CORS_ORIGINS` includes `https://yourdomain.com` and `https://<project>.vercel.app`
+   - `FRONTEND_URL` points to your production Vercel URL (used in email links)
+   - In the Google Cloud Console, add `https://yourdomain.com` and `https://<project>.vercel.app` as **Authorized JavaScript origins**.
+
+Push to `main` triggers a production deploy automatically; every PR gets its own preview URL.
+
 ## License
 
 This project is maintained for educational and demonstration purposes. Add a license file if you intend to distribute or open-source the work.
