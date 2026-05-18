@@ -498,93 +498,93 @@ export default function DashboardPage({ params }: DashboardPageProps) {
               }
               const rc = riskColors[prediction.risk_level] ?? riskColors.medium
               return (
-              <div className="space-y-4 py-4 pr-1 sm:pr-2">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className={`rounded-xl border p-4 shadow-sm ${rc.bg}`}>
-                    <p className={`text-xs font-semibold uppercase tracking-wide ${rc.label}`}>Risk level</p>
-                    <p className={`mt-2 text-2xl font-bold ${rc.value}`}>
-                      {prediction.risk_level.replace(/_/g, ' ')}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border bg-blue-50 p-4 shadow-sm dark:bg-blue-950/20">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">Estimated additional day</p>
-                    <p className="mt-2 text-3xl font-bold text-blue-900 dark:text-blue-100">{additionalDays}</p>
-                  </div>
-                  <div className="rounded-xl border bg-amber-50 p-4 shadow-sm dark:bg-amber-950/20">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">Estimated additional budget</p>
-                    <p className="mt-2 text-3xl font-bold text-amber-900 dark:text-amber-100">Birr {formatCompactAmount(additionalBudget)}</p>
-                  </div>
-                </div>
-
-                {additionalDays > 0 && predictionReason.trim() && (
-                  <div className="space-y-3 rounded-xl border bg-muted/20 p-4 shadow-sm">
-                    <p className="text-sm font-semibold text-foreground">Delay reason</p>
-                    <p className="text-sm text-muted-foreground">
-                      The plan will delay in {additionalDays} day(s) because {predictionReason}.
-                    </p>
-                  </div>
-                )}
-
-                <div className="space-y-3 rounded-xl border bg-muted/20 p-4 shadow-sm">
-                  <p className="text-sm font-semibold text-foreground">Budget impact</p>
-                  {additionalBudget > 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      You will spend Birr {formatCompactAmount(additionalBudget)} more. The project total cost will rise by {budgetRisePct}% and it will total Birr {formatCompactAmount(totalProjectAfterPrediction)}.
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No extra budget cost is predicted at the moment.</p>
-                  )}
-                </div>
-
-                <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-primary" />
-                    <p className="text-sm font-semibold text-foreground">Recommendations</p>
-                  </div>
-                  {recommendationItems.length > 0 ? (
-                    <ul className="space-y-2 text-sm text-muted-foreground">
-                      {recommendationItems.map((item) => (
-                        <li key={item} className="flex gap-2">
-                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No recommendation text is available yet.</p>
-                  )}
-                </div>
-
-                {/* Delay Breakdown */}
-                {analytics?.delay_breakdown && analytics.delay_breakdown.total_delay_days > 0 && (
-                  <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-foreground">Delay breakdown</p>
-                      <span className="text-xs text-muted-foreground">
-                        {analytics.delay_breakdown.total_delay_days} day{analytics.delay_breakdown.total_delay_days === 1 ? '' : 's'} total
-                      </span>
+                <div className="space-y-4 py-4 pr-1 sm:pr-2">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className={`rounded-xl border p-4 shadow-sm ${rc.bg}`}>
+                      <p className={`text-xs font-semibold uppercase tracking-wide ${rc.label}`}>Risk level</p>
+                      <p className={`mt-2 text-2xl font-bold ${rc.value}`}>
+                        {prediction.risk_level.replace(/_/g, ' ')}
+                      </p>
                     </div>
-                    <ul className="space-y-2">
-                      {analytics.delay_breakdown.breakdown.map((item) => (
-                        <li key={item.cause} className="space-y-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-medium text-foreground">{item.cause}</span>
-                            <span className="text-muted-foreground">
-                              {item.days} day{item.days === 1 ? '' : 's'} · {item.percentage.toFixed(0)}%
-                            </span>
-                          </div>
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full bg-primary"
-                              style={{ width: `${clamp(item.percentage, 0, 100)}%` }}
-                            />
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="rounded-xl border bg-blue-50 p-4 shadow-sm dark:bg-blue-950/20">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">Estimated additional day</p>
+                      <p className="mt-2 text-3xl font-bold text-blue-900 dark:text-blue-100">{additionalDays}</p>
+                    </div>
+                    <div className="rounded-xl border bg-amber-50 p-4 shadow-sm dark:bg-amber-950/20">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">Estimated additional budget</p>
+                      <p className="mt-2 text-3xl font-bold text-amber-900 dark:text-amber-100">Birr {formatCompactAmount(additionalBudget)}</p>
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  {additionalDays > 0 && predictionReason.trim() && (
+                    <div className="space-y-3 rounded-xl border bg-muted/20 p-4 shadow-sm">
+                      <p className="text-sm font-semibold text-foreground">Delay reason</p>
+                      <p className="text-sm text-muted-foreground">
+                        The plan will delay in {additionalDays} day(s) because {predictionReason}.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-3 rounded-xl border bg-muted/20 p-4 shadow-sm">
+                    <p className="text-sm font-semibold text-foreground">Budget impact</p>
+                    {additionalBudget > 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        You will spend Birr {formatCompactAmount(additionalBudget)} more. The project total cost will rise by {budgetRisePct}% and it will total Birr {formatCompactAmount(totalProjectAfterPrediction)}.
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No extra budget cost is predicted at the moment.</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-primary" />
+                      <p className="text-sm font-semibold text-foreground">Recommendations</p>
+                    </div>
+                    {recommendationItems.length > 0 ? (
+                      <ul className="space-y-2 text-sm text-muted-foreground">
+                        {recommendationItems.map((item) => (
+                          <li key={item} className="flex gap-2">
+                            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No recommendation text is available yet.</p>
+                    )}
+                  </div>
+
+                  {/* Delay Breakdown */}
+                  {analytics?.delay_breakdown && analytics.delay_breakdown.total_delay_days > 0 && (
+                    <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-foreground">Delay breakdown</p>
+                        <span className="text-xs text-muted-foreground">
+                          {analytics.delay_breakdown.total_delay_days} day{analytics.delay_breakdown.total_delay_days === 1 ? '' : 's'} total
+                        </span>
+                      </div>
+                      <ul className="space-y-2">
+                        {analytics.delay_breakdown.breakdown.map((item) => (
+                          <li key={item.cause} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-medium text-foreground">{item.cause}</span>
+                              <span className="text-muted-foreground">
+                                {item.days} day{item.days === 1 ? '' : 's'} · {item.percentage.toFixed(0)}%
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                              <div
+                                className="h-full bg-primary"
+                                style={{ width: `${clamp(item.percentage, 0, 100)}%` }}
+                              />
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               )
             })()}
           </DialogContent>
@@ -615,7 +615,7 @@ export default function DashboardPage({ params }: DashboardPageProps) {
                 const tone = statusTone(m.status)
                 const t = toneStyles[tone]
                 const toneFill = tone === 'good' ? '#10b981' : tone === 'warning' ? '#f59e0b' : tone === 'critical' ? '#ef4444' : '#64748b'
-                const planningPhase = m.status === 'unknown' || m.expected_progress <= 0
+                const planningPhase = project?.status === 'planning'
                 const gaugeValue = clamp(m.index, 0, 100)
                 const overage = Math.max(0, m.index - 100)
                 return (
@@ -677,7 +677,7 @@ export default function DashboardPage({ params }: DashboardPageProps) {
               {/* Budget Efficiency — progress vs budget bars */}
               {(() => {
                 const m = analytics.budget_efficiency
-                const planningPhase = m.progress_pct === 0 && m.budget_consumed_pct === 0
+                const planningPhase = project?.status === 'planning'
                 const tone = planningPhase ? 'neutral' : statusTone(m.status)
                 const t = toneStyles[tone]
                 const data = [
