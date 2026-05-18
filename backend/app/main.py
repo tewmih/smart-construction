@@ -156,3 +156,10 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 @app.get("/")
 def root():
     return {"message": "Welcome to Foresite API"}
+
+
+@app.get("/health")
+def health():
+    """Cheap liveness probe — no DB hit, returns immediately.
+    Use this for ALB / Caddy / Docker HEALTHCHECK pings."""
+    return {"status": "ok"}

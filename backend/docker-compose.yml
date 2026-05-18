@@ -1,13 +1,50 @@
+# Production-friendly docker-compose for the Foresite backend.
+#
+# On EC2: create /opt/foresite/.env with the values listed in .env.example,
+# then `docker compose up -d`. The image talks to your AWS RDS Postgres via
+# DATABASE_URL — no local DB container needed.
+#
+# For local end-to-end testing (without RDS), uncomment the `db` service
+# below and point DATABASE_URL at `postgresql://postgres:<pw>@db:5432/foresite`.
+
 services:
   backend:
     build: .
-    container_name: smart_construction_backend
+    container_name: foresite_backend
+    restart: unless-stopped
     ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - JWT_SECRET=${JWT_SECRET}
-      - PROJECT_NAME=${PROJECT_NAME:-Smart Construction}
-      - PORT=8000
+      - "127.0.0.1:8000:8000"   # bound to localhost so only Caddy can reach it
     env_file:
       - .env
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    volumes:
+      # Persist locally-uploaded photos across container restarts.
+      # If Cloudinary is configured, this volume is unused.
+      - foresite_uploads:/app/uploads
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ─── Uncomment for fully-local testing (mirrors RDS shape) ─────────────────
+  # db:
+  #   image: postgres:16-alpine
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: ${LOCAL_DB_PASSWORD:-postgres}
+  #     POSTGRES_DB: foresite
+  #   volumes:
+  #     - foresite_pgdata:/var/lib/postgresql/data
+  #   ports:
+  #     - "127.0.0.1:5432:5432"
+
+volumes:
+  foresite_uploads:
+  # foresite_pgdata:
