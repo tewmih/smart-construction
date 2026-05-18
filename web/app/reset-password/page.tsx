@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react'
+import { Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react'
+import Image from 'next/image'
 import { apiRequest } from '@/lib/api-client'
 
 export default function ResetPasswordPage() {
@@ -56,7 +57,7 @@ function ResetPasswordForm() {
       <Card className="w-full max-w-md border-0 shadow-lg bg-background">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <Building2 className="h-8 w-8 text-primary" />
+            <Image src="/logo-construction pro-1.png" alt="Foresite" width={40} height={40} className="h-10 w-10 object-contain" />
             <span className="font-bold text-xl">Foresite</span>
           </div>
           <CardTitle className="text-2xl">Reset Password</CardTitle>

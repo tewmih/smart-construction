@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Building2, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import Image from 'next/image'
 import { useAuth } from '@/lib/auth-context'
 import { GoogleSignInButton } from '@/components/google-sign-in-button'
 
@@ -78,8 +79,8 @@ function SignupForm() {
     <div className="min-h-screen bg-primary flex">
       {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12">
-        <div className="flex items-center gap-2 text-primary-foreground">
-          <Building2 className="h-10 w-10" />
+        <div className="flex items-center gap-3 text-primary-foreground">
+          <Image src="/logo-construction pro-1.png" alt="Foresite" width={48} height={48} className="h-12 w-12 object-contain" />
           <span className="font-bold text-2xl">Foresite</span>
         </div>
 
@@ -116,7 +117,7 @@ function SignupForm() {
         <Card className="w-full max-w-md border-0 shadow-lg">
           <CardHeader className="space-y-1 text-center">
             <div className="flex items-center justify-center gap-2 mb-4 lg:hidden">
-              <Building2 className="h-8 w-8 text-primary" />
+              <Image src="/logo-construction pro-1.png" alt="Foresite" width={40} height={40} className="h-10 w-10 object-contain" />
               <span className="font-bold text-xl text-foreground">Foresite</span>
             </div>
             <CardTitle className="text-2xl">Create an account</CardTitle>
