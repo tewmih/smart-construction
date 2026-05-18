@@ -39,10 +39,16 @@ class AuditLog(Base):
 class Message(Base):
     __tablename__ = "messages"
     id = Column(SQL_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    user_id = Column(SQL_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id = Column(SQL_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     content = Column(Text, nullable=False)
-    is_read = Column(Boolean, default=False)
+    is_read = Column(Boolean, default=False, index=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    # Notification metadata for icon routing and deep-linking.
+    type = Column(String(50), nullable=True, index=True)
+    entity_type = Column(String(50), nullable=True)
+    entity_id = Column(SQL_UUID(as_uuid=True), nullable=True)
+    project_id = Column(SQL_UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True, index=True)
 
 class SystemSetting(Base):
     __tablename__ = "system_settings"
@@ -57,6 +63,8 @@ class Announcement(Base):
     content = Column(Text, nullable=False)
     priority = Column(String(50), default="normal")  # low, normal, high, urgent
     is_active = Column(Boolean, default=True)
+    # Target audience: "all" (default) | "admins" | "project_managers"
+    target_audience = Column(String(50), nullable=False, server_default="all")
     created_by = Column(SQL_UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     expires_at = Column(DateTime(timezone=True), nullable=True)

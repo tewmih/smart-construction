@@ -118,7 +118,7 @@ class ProjectService:
         return await project_repo.update(db, project, project_in)
 
     @staticmethod
-    async def delete_project(db: AsyncSession, project_id: UUID) -> bool:
+    async def delete_project(db: AsyncSession, project_id: UUID, actor_id: UUID | None = None) -> bool:
         """Delete a project and all its related data using raw SQL.
 
         Raw SQL is used throughout to avoid two classes of SQLAlchemy async bugs:
@@ -130,12 +130,38 @@ class ProjectService:
            always available, causing MissingGreenlet crashes.
         """
         from sqlalchemy import text
+        from app.core.audit import log_audit
 
         project = await project_repo.get_by_id(db, project_id)
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
 
+        # Audit the deletion BEFORE the cascade so the row carries the project name.
+        # We deliberately leave project_id NULL on the audit row — the project will
+        # be gone, and a dangling FK would block this delete chain.
+        await log_audit(
+            db,
+            user_id=actor_id,
+            action="DELETE_PROJECT",
+            entity_type="project",
+            entity_id=str(project.id),
+            project_id=None,
+            details=f"Deleted project: {project.name}",
+        )
+
         pid = project_id  # UUID — asyncpg accepts it natively as a parameter
+
+        # Preserve historical audit rows + notifications tied to this project by
+        # NULL-ing their project_id FK — otherwise the cascade DELETE below would
+        # be blocked by SQL referential integrity.
+        await db.execute(
+            text("UPDATE audit_logs SET project_id = NULL WHERE project_id = :pid"),
+            {"pid": pid},
+        )
+        await db.execute(
+            text("UPDATE messages SET project_id = NULL WHERE project_id = :pid"),
+            {"pid": pid},
+        )
 
         # ── 1. Daily-log sub-entities (deepest children first) ──────────────
         await db.execute(
@@ -264,6 +290,16 @@ class ProjectMemberService:
             role=member_in.role.value,
         )
         db.add(db_obj)
+
+        project = await db.get(Project, project_id)
+        project_name = project.name if project else "a project"
+        from app.services.notifications import notify
+        await notify(
+            db, user_id=member_in.user_id, type="member_added",
+            content=f"You were added to project '{project_name}' as {member_in.role.value.replace('_', ' ')}",
+            entity_type="project", entity_id=project_id, project_id=project_id,
+        )
+
         await db.commit()
         await db.refresh(db_obj)
         return db_obj
@@ -357,6 +393,12 @@ class ProjectInvitationService:
                 status="accepted",
                 email_sent_at=sent_at,
             )
+            from app.services.notifications import notify
+            await notify(
+                db, user_id=existing_user.id, type="invitation",
+                content=f"You were invited to project '{project.name}' as {invite_in.role.value.replace('_', ' ')}",
+                entity_type="project", entity_id=project_id, project_id=project_id,
+            )
         else:
             db_obj = ProjectInvitation(
                 project_id=project_id,
@@ -445,10 +487,19 @@ class ProjectInvitationService:
             role=invitation.role,
         )
         db.add(new_member)
-        
+
         invitation.status = "accepted"
         db.add(invitation)
-        
+
+        project = await db.get(Project, invitation.project_id)
+        project_name = project.name if project else "a project"
+        from app.services.notifications import notify
+        await notify(
+            db, user_id=user_id, type="member_added",
+            content=f"You were added to project '{project_name}' as {invitation.role.replace('_', ' ')}",
+            entity_type="project", entity_id=invitation.project_id, project_id=invitation.project_id,
+        )
+
         await db.commit()
         await db.refresh(new_member)
         return new_member

@@ -16,7 +16,6 @@ import { generateReport } from '@/lib/api'
 import type { ReportResponse } from '@/lib/api-types'
 import { Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react'
 import { useCurrency } from '@/lib/currency-context'
-import { CurrencyPicker } from '@/components/currency-picker'
 import { toast } from 'sonner'
 
 interface ReportsPageProps {
@@ -80,7 +79,7 @@ export default function ReportsPage({ params }: ReportsPageProps) {
       if (format === 'excel') {
         downloadExcel(data)
       } else {
-        downloadPDF(data)
+        await downloadPDF(data)
       }
 
       toast.success(`Report downloaded as ${format.toUpperCase()}`)
@@ -171,13 +170,7 @@ export default function ReportsPage({ params }: ReportsPageProps) {
     URL.revokeObjectURL(a.href)
   }
 
-  const downloadPDF = (report: ReportResponse) => {
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) {
-      toast.error('Please allow popups to open the print dialog')
-      return
-    }
-
+  const buildPDFHtml = (report: ReportResponse): string => {
     const allMp = [
       ...(report.manpower?.staff || []),
       ...(report.manpower?.technical || []),
@@ -197,7 +190,7 @@ export default function ReportsPage({ params }: ReportsPageProps) {
       { label: 'Labor', data: report.manpower?.labor || [] },
     ]
 
-    printWindow.document.write(`<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -334,23 +327,101 @@ export default function ReportsPage({ params }: ReportsPageProps) {
     Generated on ${new Date().toLocaleString()} &nbsp;|&nbsp; Smart Construction Management System
   </p>
 </body>
-</html>`)
+</html>`
+  }
 
-    printWindow.document.close()
-    setTimeout(() => {
-      printWindow.focus()
-      printWindow.print()
-    }, 300)
+  const downloadPDF = async (report: ReportResponse) => {
+    // Lazy-load to avoid pulling ~250kb into the initial bundle.
+    // html2canvas-pro is a fork that understands modern color functions
+    // (oklch / lch / lab) that Tailwind 4 uses.
+    const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+      import('jspdf'),
+      import('html2canvas-pro'),
+    ])
+
+    // Render the report HTML in a hidden, fixed-width container so the layout
+    // is stable regardless of the user's viewport.
+    const A4_WIDTH_PX = 794   // 210mm @ 96dpi
+    const host = document.createElement('div')
+    host.style.cssText = [
+      'position:fixed',
+      'left:-99999px',
+      'top:0',
+      `width:${A4_WIDTH_PX}px`,
+      'background:#ffffff',
+      'z-index:-1',
+    ].join(';')
+    host.innerHTML = buildPDFHtml(report)
+    document.body.appendChild(host)
+
+    // The HTML we render is a full document; extract <body> children for capture.
+    const body = host.querySelector('body')
+    const captureRoot: HTMLElement = (body as HTMLElement) || host
+
+    try {
+      const canvas = await html2canvas(captureRoot, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        windowWidth: A4_WIDTH_PX,
+      })
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+      const pageW = pdf.internal.pageSize.getWidth()
+      const pageH = pdf.internal.pageSize.getHeight()
+
+      // Margins so content has breathing room from the page edges.
+      const MARGIN = 36           // 0.5 inch at 72 dpi
+      const usableW = pageW - 2 * MARGIN
+      const usableH = pageH - 2 * MARGIN
+
+      // Scale the source canvas to fit the usable width; slice it vertically
+      // and emit one image per page so each page gets full top + bottom margin.
+      const scale = usableW / canvas.width
+      const sliceCanvasH = Math.floor(usableH / scale)  // source-pixel rows per page
+
+      let srcY = 0
+      let pageIdx = 0
+      while (srcY < canvas.height) {
+        const remaining = canvas.height - srcY
+        const sliceH = Math.min(sliceCanvasH, remaining)
+
+        const slice = document.createElement('canvas')
+        slice.width = canvas.width
+        slice.height = sliceH
+        const ctx = slice.getContext('2d')!
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, slice.width, slice.height)
+        ctx.drawImage(canvas, 0, srcY, canvas.width, sliceH, 0, 0, canvas.width, sliceH)
+
+        if (pageIdx > 0) pdf.addPage()
+        pdf.addImage(
+          slice.toDataURL('image/jpeg', 0.92),
+          'JPEG',
+          MARGIN,
+          MARGIN,
+          usableW,
+          sliceH * scale,
+          undefined,
+          'FAST',
+        )
+
+        srcY += sliceCanvasH
+        pageIdx += 1
+      }
+
+      const safeName = (report.project_name || 'project').replace(/[^a-z0-9-_]+/gi, '_')
+      pdf.save(`${safeName}_report_${report.start_date}_${report.end_date}.pdf`)
+    } finally {
+      document.body.removeChild(host)
+    }
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Project Reports</h1>
-          <p className="text-sm text-muted-foreground">Generate and download project reports</p>
-        </div>
-        <CurrencyPicker />
+      <div>
+        <h1 className="text-2xl font-semibold">Project Reports</h1>
+        <p className="text-sm text-muted-foreground">Generate and download project reports</p>
       </div>
 
       <Card className="shadow-sm">

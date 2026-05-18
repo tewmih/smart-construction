@@ -32,7 +32,7 @@ import {
 import { useAuth } from '@/lib/auth-context'
 import { listUsers, promoteUser, demoteUser, activateUser, deactivateUser } from '@/lib/api'
 import type { UserListItem } from '@/lib/api-types'
-import { Loader2, MoreVertical, Search, Shield, ShieldOff, UserCheck, UserX, ArrowLeft } from 'lucide-react'
+import { Loader2, MoreVertical, Search, Shield, ShieldOff, UserCheck, UserX, ArrowLeft, ChevronLeft, ChevronRight, ArrowDown, ArrowUp } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 export default function AdminUsersPage() {
@@ -40,11 +40,17 @@ export default function AdminUsersPage() {
     const { user, isAuthenticated, isLoading: authLoading } = useAuth()
     const { toast } = useToast()
     const [users, setUsers] = useState<UserListItem[]>([])
+    const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
+    const [sortBy, setSortBy] = useState<string>('created_at')
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
     const [statusFilter, setStatusFilter] = useState<string>('all')
     const [roleFilter, setRoleFilter] = useState<string>('all')
+
+    const PAGE_SIZE = 25
 
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
@@ -59,13 +65,19 @@ export default function AdminUsersPage() {
         setLoading(true)
         setError(null)
         try {
-            const params: any = {}
+            const params: Record<string, unknown> = {
+                page,
+                limit: PAGE_SIZE,
+                sort_by: sortBy,
+                sort_dir: sortDir,
+            }
             if (searchQuery) params.search = searchQuery
             if (statusFilter !== 'all') params.is_active = statusFilter === 'active'
             if (roleFilter !== 'all') params.is_admin = roleFilter === 'admin'
 
-            const data = await listUsers(params)
-            setUsers(data)
+            const res = await listUsers(params)
+            setUsers(res.data)
+            setTotal(res.total)
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load users')
         } finally {
@@ -76,7 +88,38 @@ export default function AdminUsersPage() {
     useEffect(() => {
         if (!isAuthenticated || !user?.is_admin) return
         loadUsers()
-    }, [isAuthenticated, user, searchQuery, statusFilter, roleFilter])
+    }, [isAuthenticated, user, searchQuery, statusFilter, roleFilter, page, sortBy, sortDir])
+
+    useEffect(() => {
+        setPage(1)
+    }, [searchQuery, statusFilter, roleFilter])
+
+    const toggleSort = (col: string) => {
+        if (sortBy === col) {
+            setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+        } else {
+            setSortBy(col)
+            setSortDir('asc')
+        }
+    }
+
+    const sortIcon = (col: string) => {
+        if (sortBy !== col) return null
+        return sortDir === 'asc' ? <ArrowUp className="ml-1 h-3 w-3 inline" /> : <ArrowDown className="ml-1 h-3 w-3 inline" />
+    }
+
+    const formatRelative = (iso?: string | null) => {
+        if (!iso) return 'Never'
+        const diff = Date.now() - new Date(iso).getTime()
+        const days = Math.floor(diff / 86_400_000)
+        if (days < 1) return 'Today'
+        if (days === 1) return 'Yesterday'
+        if (days < 30) return `${days}d ago`
+        if (days < 365) return `${Math.floor(days / 30)}mo ago`
+        return `${Math.floor(days / 365)}y ago`
+    }
+
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
     const handlePromote = async (userId: string) => {
         try {
@@ -158,14 +201,9 @@ export default function AdminUsersPage() {
 
     return (
         <div className="p-8 space-y-8">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
-                    <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-                    <p className="text-muted-foreground mt-2">Manage system users, roles, and permissions</p>
-                </div>
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
+                <p className="text-muted-foreground mt-2">Manage system users, roles, and permissions</p>
             </div>
 
             <Card>
@@ -218,25 +256,38 @@ export default function AdminUsersPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Email</TableHead>
+                                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('full_name')}>
+                                        Name {sortIcon('full_name')}
+                                    </TableHead>
+                                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('email')}>
+                                        Email {sortIcon('email')}
+                                    </TableHead>
                                     <TableHead>Phone</TableHead>
-                                    <TableHead>Role</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Joined</TableHead>
+                                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('is_admin')}>
+                                        Role {sortIcon('is_admin')}
+                                    </TableHead>
+                                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('is_active')}>
+                                        Status {sortIcon('is_active')}
+                                    </TableHead>
+                                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('created_at')}>
+                                        Joined {sortIcon('created_at')}
+                                    </TableHead>
+                                    <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('last_login_at')}>
+                                        Last Login {sortIcon('last_login_at')}
+                                    </TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8">
+                                        <TableCell colSpan={8} className="text-center py-8">
                                             <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                                         </TableCell>
                                     </TableRow>
                                 ) : users.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                                             No users found
                                         </TableCell>
                                     </TableRow>
@@ -264,12 +315,17 @@ export default function AdminUsersPage() {
                                                     </Badge>
                                                 )}
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="text-sm text-muted-foreground">
                                                 {new Date(u.created_at).toLocaleDateString('en-US', {
                                                     month: 'short',
                                                     day: 'numeric',
                                                     year: 'numeric',
                                                 })}
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground">
+                                                <span title={u.last_login_at ? new Date(u.last_login_at).toLocaleString() : 'Never logged in'}>
+                                                    {formatRelative(u.last_login_at)}
+                                                </span>
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <DropdownMenu>
@@ -316,6 +372,22 @@ export default function AdminUsersPage() {
                             </TableBody>
                         </Table>
                     </div>
+
+                    {total > 0 && (
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">
+                                Page {page} of {totalPages} · {total.toLocaleString()} user{total === 1 ? '' : 's'}
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="sm" disabled={page <= 1 || loading} onClick={() => setPage(p => Math.max(1, p - 1))}>
+                                    <ChevronLeft className="h-4 w-4" /> Prev
+                                </Button>
+                                <Button variant="outline" size="sm" disabled={page >= totalPages || loading} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+                                    Next <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

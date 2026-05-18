@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.dependencies import DbSession, get_current_active_user, get_current_admin_user
-from app.schemas.user import UserResponse, UserUpdate
+from app.schemas.user import UserResponse, UserUpdate, UserPage
 from app.models.user import User
 from app.services.user import UserService
 from app.repositories.user import UserRepository
@@ -32,20 +32,32 @@ async def update_user_me(
 
 # ── Admin: User Management ──
 
-@router.get("", response_model=List[UserResponse], summary="List all users (Admin)")
+@router.get("", response_model=UserPage, summary="List all users (Admin)")
 async def read_users(
     db: DbSession,
-    skip: int = 0,
-    limit: int = 100,
+    page: int = 1,
+    limit: int = 50,
     search: str | None = None,
     is_active: bool | None = None,
     is_admin: bool | None = None,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
     current_user: User = Depends(get_current_admin_user),
 ) -> Any:
-    """Retrieve all users with optional filters. Admin only."""
-    return await UserRepository.get_all(
-        db, skip=skip, limit=limit, search=search, is_active=is_active, is_admin=is_admin
+    """Paginated user listing with filters + sorting. Admin only."""
+    limit = max(1, min(limit, 200))
+    page = max(1, page)
+    skip = (page - 1) * limit
+
+    total = await UserRepository.count_all(
+        db, search=search, is_active=is_active, is_admin=is_admin
     )
+    data = await UserRepository.get_all(
+        db, skip=skip, limit=limit,
+        search=search, is_active=is_active, is_admin=is_admin,
+        sort_by=sort_by, sort_dir=sort_dir,
+    )
+    return {"total": total, "page": page, "limit": limit, "data": data}
 
 @router.get("/{user_id}", response_model=UserResponse, summary="Get user by ID (Admin)")
 async def read_user_by_id(

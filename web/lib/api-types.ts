@@ -301,12 +301,28 @@ export interface EnrichedMemberRow {
 
 /* ── Messages ── */
 
+export type MessageType =
+  | 'log_submitted'
+  | 'log_consultant_approved'
+  | 'log_approved'
+  | 'log_rejected'
+  | 'task_assigned'
+  | 'member_added'
+  | 'invitation'
+  | 'announcement'
+  | 'risk_alert'
+  | 'budget_alert'
+
 export interface MessageRow {
   id: string
   user_id: string
   content: string
   is_read: boolean
   created_at: string
+  type?: MessageType | string | null
+  entity_type?: string | null
+  entity_id?: string | null
+  project_id?: string | null
 }
 
 /* ── Prediction ── */
@@ -468,6 +484,14 @@ export interface UserListItem {
   is_active: boolean
   created_at: string
   updated_at: string
+  last_login_at?: string | null
+}
+
+export interface UserPage {
+  total: number
+  page: number
+  limit: number
+  data: UserListItem[]
 }
 
 export interface SystemSettingsStructured {
@@ -493,11 +517,20 @@ export interface AuditLogItem {
   id: string
   project_id?: string | null
   user_id?: string | null
+  user_email?: string | null
+  user_name?: string | null
   action: string
   entity_type?: string | null
   entity_id?: string | null
   details?: string | null
   created_at: string
+}
+
+export interface AuditLogPage {
+  total: number
+  page: number
+  limit: number
+  data: AuditLogItem[]
 }
 
 export interface AnnouncementItem {
@@ -506,6 +539,7 @@ export interface AnnouncementItem {
   content: string
   priority: string
   is_active: boolean
+  target_audience?: 'all' | 'admins' | 'project_managers' | string
   created_by: string
   created_at: string
   expires_at?: string | null

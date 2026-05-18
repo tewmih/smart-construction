@@ -56,8 +56,61 @@ async def update_project(
 
 @router.delete("/{project_id}", status_code=204, summary="Delete project",
                dependencies=[Depends(require_project_role([ProjectRole.OWNER, ProjectRole.PROJECT_MANAGER]))])
-async def delete_project(project_id: UUID, db: DbSession) -> None:
-    await ProjectService.delete_project(db, project_id)
+async def delete_project(
+    project_id: UUID, db: DbSession,
+    current_user: User = Depends(get_current_active_user),
+) -> None:
+    await ProjectService.delete_project(db, project_id, actor_id=current_user.id)
+
+
+@router.get("/{project_id}/settings-overrides", summary="Get project setting overrides")
+async def get_project_overrides(
+    project_id: UUID, db: DbSession,
+    _: User = Depends(get_current_active_user),
+) -> Any:
+    """Return per-project setting overrides (null = inherit from global)."""
+    project = await project_repo.get_by_id(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {
+        "budget_alert_threshold_pct_override": project.budget_alert_threshold_pct_override,
+    }
+
+
+@router.put(
+    "/{project_id}/settings-overrides",
+    summary="Update project setting overrides",
+    dependencies=[Depends(require_project_role([ProjectRole.OWNER, ProjectRole.PROJECT_MANAGER]))],
+)
+async def update_project_overrides(
+    *, db: DbSession, project_id: UUID,
+    body: dict[str, Any],
+) -> Any:
+    """Set or clear a per-project threshold override. Pass null to clear."""
+    project = await project_repo.get_by_id(db, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if "budget_alert_threshold_pct_override" in body:
+        val = body.get("budget_alert_threshold_pct_override")
+        if val is None:
+            project.budget_alert_threshold_pct_override = None
+        else:
+            try:
+                v = float(val)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="budget_alert_threshold_pct_override must be a number or null")
+            if v <= 0 or v >= 100:
+                raise HTTPException(status_code=400, detail="threshold must be between 0 and 100 exclusive")
+            project.budget_alert_threshold_pct_override = v
+            # Reset the last-alerted marker so the new threshold can re-arm.
+            project.last_alert_budget_threshold = None
+
+    db.add(project)
+    await db.commit()
+    return {
+        "budget_alert_threshold_pct_override": project.budget_alert_threshold_pct_override,
+    }
 
 # ── Project Dashboard ──
 

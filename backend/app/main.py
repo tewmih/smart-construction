@@ -73,6 +73,34 @@ async def lifespan(app: FastAPI):
         await conn.execute(text(
             "ALTER TABLE equipment ADD COLUMN IF NOT EXISTS idle_reason TEXT"
         ))
+        # Notifications: extend messages with type/entity link and bookkeeping on projects
+        await conn.execute(text(
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS type VARCHAR(50)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS entity_type VARCHAR(50)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS entity_id UUID"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(id)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS last_alert_risk_level VARCHAR(20)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS last_alert_budget_threshold FLOAT"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE announcements ADD COLUMN IF NOT EXISTS target_audience VARCHAR(50) NOT NULL DEFAULT 'all'"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE projects ADD COLUMN IF NOT EXISTS budget_alert_threshold_pct_override FLOAT"
+        ))
     load_ml_artifacts()
     yield
 
@@ -127,4 +155,4 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 @app.get("/")
 def root():
-    return {"message": "Welcome to Smart Construction API"}
+    return {"message": "Welcome to Foresite API"}

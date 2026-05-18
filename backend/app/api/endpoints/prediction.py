@@ -327,6 +327,34 @@ async def get_risk_prediction(
     factors = _build_factors(project, m, ml_result, features)
     reason, recommendation = _generate_insights(m, risk_level, source)
 
+    # Risk-escalation alert — notify PM once when the level moves up vs. the last alerted level.
+    # Order: low < medium < high < critical. Drops do not notify.
+    risk_order = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+    last_alerted = project.last_alert_risk_level
+    if (
+        risk_level in risk_order
+        and (last_alerted is None or risk_order[risk_level] > risk_order.get(last_alerted, -1))
+        and risk_level != "low"  # don't notify when the project is healthy
+    ):
+        from app.models.project import ProjectMember
+        from app.models.commons import ProjectRole as _PR
+        from app.services.notifications import notify
+        pm_rows = await db.execute(
+            select(ProjectMember.user_id).where(
+                ProjectMember.project_id == project_id,
+                ProjectMember.role == _PR.PROJECT_MANAGER.value,
+            )
+        )
+        for (uid,) in pm_rows.all():
+            await notify(
+                db, user_id=uid, type="risk_alert",
+                content=f"Risk on project '{project.name}' rose to {risk_level}",
+                entity_type="project", entity_id=project_id, project_id=project_id,
+            )
+        project.last_alert_risk_level = risk_level
+        db.add(project)
+        await db.commit()
+
     return RiskPredictionResponse(
         project_id=project_id,
         risk_level=risk_level,

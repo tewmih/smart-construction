@@ -1,4 +1,4 @@
-import { apiRequest } from './api-client'
+import { apiRequest, getApiBaseUrl } from './api-client'
 import type {
   BudgetItemResponse,
   BudgetPaymentItem,
@@ -29,9 +29,11 @@ import type {
   UserMe,
   WeatherResponse,
   UserListItem,
+  UserPage,
   SystemSettingsStructured,
   AdminStatsResponse,
   AuditLogItem,
+  AuditLogPage,
   AnnouncementItem,
   ComprehensiveAnalytics,
 } from './api-types'
@@ -635,6 +637,10 @@ export async function markMessageRead(messageId: string) {
   return apiRequest(`/messages/${messageId}/read`, { method: 'PATCH' })
 }
 
+export async function getUnreadMessageCount() {
+  return apiRequest<{ count: number }>(`/messages/unread-count`)
+}
+
 /* ── Prediction ── */
 
 export async function getPrediction(projectId: string) {
@@ -643,6 +649,23 @@ export async function getPrediction(projectId: string) {
 
 export async function getComprehensiveAnalytics(projectId: string) {
   return apiRequest<ComprehensiveAnalytics>(`/projects/${projectId}/analytics/comprehensive`)
+}
+
+/* ── Per-project setting overrides ── */
+
+export interface ProjectOverrides {
+  budget_alert_threshold_pct_override: number | null
+}
+
+export async function getProjectOverrides(projectId: string) {
+  return apiRequest<ProjectOverrides>(`/projects/${projectId}/settings-overrides`)
+}
+
+export async function updateProjectOverrides(projectId: string, body: Partial<ProjectOverrides>) {
+  return apiRequest<ProjectOverrides>(`/projects/${projectId}/settings-overrides`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
 }
 
 /* ── Weather ── */
@@ -991,10 +1014,12 @@ export async function listUsers(params?: {
   search?: string
   is_active?: boolean
   is_admin?: boolean
-  skip?: number
+  sort_by?: string
+  sort_dir?: 'asc' | 'desc'
+  page?: number
   limit?: number
 }) {
-  return apiRequest<UserListItem[]>(`/users${q(params || {})}`)
+  return apiRequest<UserPage>(`/users${q(params || {})}`)
 }
 
 export async function promoteUser(userId: string) {
@@ -1032,17 +1057,67 @@ export async function getAdminStats() {
   return apiRequest<AdminStatsResponse>('/admin/stats')
 }
 
+export interface PlatformSummary {
+  users: { total: number; active: number; admins: number }
+  projects: { total: number; by_status: Record<string, number>; total_budget: number; total_spent: number; remaining: number }
+  tasks: { total: number; completed: number }
+  daily_logs: { total: number; pm_approved: number }
+}
+
+export interface ActivitySeriesPoint {
+  date: string
+  signups: number
+  logins: number
+  log_approvals: number
+  audit_events: number
+}
+
+export interface SystemHealth {
+  status: 'ok' | 'degraded' | string
+  database: { reachable: boolean; error?: string }
+  row_counts: Record<string, number>
+  ml_model_loaded: boolean
+  audit_events_last_hour: number
+}
+
+export async function getPlatformSummary() {
+  return apiRequest<PlatformSummary>('/admin/platform-summary')
+}
+
+export async function getActivitySummary(days = 30) {
+  return apiRequest<{ days: number; series: ActivitySeriesPoint[] }>(`/admin/activity-summary?days=${days}`)
+}
+
+export async function getRecentActivity(limit = 10) {
+  return apiRequest<AuditLogItem[]>(`/admin/recent-activity?limit=${limit}`)
+}
+
+export async function getSystemHealth() {
+  return apiRequest<SystemHealth>('/admin/system-health')
+}
+
 /* ── Admin: Audit Logs ── */
 
 export async function listAuditLogs(params?: {
-  user_id?: string
   action?: string
   entity_type?: string
-  project_id?: string
-  skip?: number
+  user_search?: string
+  start_date?: string
+  end_date?: string
+  page?: number
   limit?: number
 }) {
-  return apiRequest<AuditLogItem[]>(`/audit-logs${q(params || {})}`)
+  return apiRequest<AuditLogPage>(`/audit-logs${q(params || {})}`)
+}
+
+export function getAuditLogsCsvUrl(params?: {
+  action?: string
+  entity_type?: string
+  user_search?: string
+  start_date?: string
+  end_date?: string
+}) {
+  return `${getApiBaseUrl()}/audit-logs/export.csv${q(params || {})}`
 }
 
 /* ── Admin: Announcements ── */
@@ -1059,6 +1134,7 @@ export async function createAnnouncement(body: {
   title: string
   content: string
   priority?: string
+  target_audience?: 'all' | 'admins' | 'project_managers'
   expires_at?: string
 }) {
   return apiRequest<AnnouncementItem>('/announcements', {
@@ -1073,6 +1149,7 @@ export async function updateAnnouncement(
     title?: string
     content?: string
     priority?: string
+    target_audience?: 'all' | 'admins' | 'project_managers'
     is_active?: boolean
     expires_at?: string
   },

@@ -1,9 +1,18 @@
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash
+
+SORTABLE_USER_COLUMNS = {
+    "full_name": User.full_name,
+    "email": User.email,
+    "created_at": User.created_at,
+    "last_login_at": User.last_login_at,
+    "is_active": User.is_active,
+    "is_admin": User.is_admin,
+}
 
 class UserRepository:
     @staticmethod
@@ -55,34 +64,55 @@ class UserRepository:
 
     @staticmethod
     async def get_all(
-        db: AsyncSession, 
-        skip: int = 0, 
+        db: AsyncSession,
+        skip: int = 0,
         limit: int = 100,
         search: str | None = None,
         is_active: bool | None = None,
         is_admin: bool | None = None,
+        sort_by: str = "created_at",
+        sort_dir: str = "desc",
     ) -> list[User]:
         query = select(User)
-        
-        # Apply search filter (name or email)
+
         if search:
             search_pattern = f"%{search}%"
             query = query.where(
-                (User.full_name.ilike(search_pattern)) | 
+                (User.full_name.ilike(search_pattern)) |
                 (User.email.ilike(search_pattern))
             )
-        
-        # Apply is_active filter
         if is_active is not None:
             query = query.where(User.is_active == is_active)
-        
-        # Apply is_admin filter
         if is_admin is not None:
             query = query.where(User.is_admin == is_admin)
-        
+
+        sort_col = SORTABLE_USER_COLUMNS.get(sort_by, User.created_at)
+        query = query.order_by(sort_col.desc() if sort_dir == "desc" else sort_col.asc())
+
         query = query.offset(skip).limit(limit)
         result = await db.execute(query)
         return list(result.scalars().all())
+
+    @staticmethod
+    async def count_all(
+        db: AsyncSession,
+        search: str | None = None,
+        is_active: bool | None = None,
+        is_admin: bool | None = None,
+    ) -> int:
+        query = select(func.count()).select_from(User)
+        if search:
+            search_pattern = f"%{search}%"
+            query = query.where(
+                (User.full_name.ilike(search_pattern)) |
+                (User.email.ilike(search_pattern))
+            )
+        if is_active is not None:
+            query = query.where(User.is_active == is_active)
+        if is_admin is not None:
+            query = query.where(User.is_admin == is_admin)
+        result = await db.execute(query)
+        return int(result.scalar() or 0)
 
     @staticmethod
     async def create(db: AsyncSession, user_in: UserCreate) -> User:

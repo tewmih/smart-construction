@@ -39,14 +39,37 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useTheme } from 'next-themes'
-import { fetchMyProjects } from '@/lib/api'
+import { fetchMyProjects, getRecentActivity, getSystemHealth, getActivitySummary, type SystemHealth, type ActivitySeriesPoint } from '@/lib/api'
 import type { ProjectListItem } from '@/lib/api-types'
-import type { AdminStatsResponse } from '@/lib/api-types'
+import type { AdminStatsResponse, AuditLogItem } from '@/lib/api-types'
 import { getAdminStats } from '@/lib/api'
+import { Line, LineChart, ResponsiveContainer } from 'recharts'
 import { roleLabels, statusColors } from '@/lib/domain'
 import { PieChart, Pie, Cell, Tooltip } from 'recharts'
 
 // Project Status Chart Component
+function Sparkline({ data, dataKey, color }: { data: ActivitySeriesPoint[]; dataKey: keyof ActivitySeriesPoint; color: string }) {
+  if (!data || data.length < 2) return null
+  return (
+    <div className="h-8 mt-2">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data}>
+          <Line type="monotone" dataKey={dataKey as string} stroke={color} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+function Row({ k, v, ok }: { k: string; v: string; ok: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-muted-foreground">{k}</span>
+      <span className={ok ? 'font-medium text-emerald-700' : 'font-medium text-red-700'}>{v}</span>
+    </div>
+  )
+}
+
 function ProjectStatusChart({ stats }: { stats: AdminStatsResponse }) {
   const chartData = [
     {
@@ -136,6 +159,9 @@ export default function DashboardProjectListPage() {
   const [projectsError, setProjectsError] = useState<string | null>(null)
   const [stats, setStats] = useState<AdminStatsResponse | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
+  const [recentActivity, setRecentActivity] = useState<AuditLogItem[]>([])
+  const [health, setHealth] = useState<SystemHealth | null>(null)
+  const [activitySeries, setActivitySeries] = useState<ActivitySeriesPoint[]>([])
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -173,7 +199,7 @@ export default function DashboardProjectListPage() {
     }
   }, [isAuthenticated, user?.id])
 
-  // Load admin stats if user is admin
+  // Load admin stats + recent activity + system health if user is admin
   useEffect(() => {
     if (!isAuthenticated || !user?.is_admin) return
 
@@ -182,9 +208,17 @@ export default function DashboardProjectListPage() {
       ; (async () => {
         setStatsLoading(true)
         try {
-          const data = await getAdminStats()
+          const [data, activity, hp, summary] = await Promise.all([
+            getAdminStats(),
+            getRecentActivity(6).catch(() => []),
+            getSystemHealth().catch(() => null),
+            getActivitySummary(30).catch(() => ({ days: 30, series: [] as ActivitySeriesPoint[] })),
+          ])
           if (!cancelled) {
             setStats(data)
+            setRecentActivity(Array.isArray(activity) ? activity : [])
+            setHealth(hp)
+            setActivitySeries(summary?.series ?? [])
           }
         } catch (error) {
           console.error('Failed to load admin stats:', error)
@@ -332,7 +366,8 @@ export default function DashboardProjectListPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{stats.total_users}</div>
-                      <p className="text-xs text-muted-foreground">{stats.active_users} active</p>
+                      <p className="text-xs text-muted-foreground">{stats.active_users} active · last 30d signups below</p>
+                      <Sparkline data={activitySeries} dataKey="signups" color="#10b981" />
                     </CardContent>
                   </Card>
 
@@ -345,8 +380,9 @@ export default function DashboardProjectListPage() {
                     <CardContent>
                       <div className="text-2xl font-bold">{stats.total_projects}</div>
                       <p className="text-xs text-muted-foreground">
-                        {stats.projects_by_status?.in_progress ?? 0} in progress
+                        {stats.projects_by_status?.in_progress ?? 0} in progress · audit events below
                       </p>
+                      <Sparkline data={activitySeries} dataKey="audit_events" color="#f59e0b" />
                     </CardContent>
                   </Card>
 
@@ -360,23 +396,63 @@ export default function DashboardProjectListPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{stats.total_suppliers}</div>
-                      <p className="text-xs text-muted-foreground">Registered</p>
+                      <p className="text-xs text-muted-foreground">Registered · log approvals below</p>
+                      <Sparkline data={activitySeries} dataKey="log_approvals" color="#a855f7" />
                     </CardContent>
                   </Card>
                 </div>
 
-                {/* Projects by Status Chart */}
-                {stats.total_projects > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Projects by Status</CardTitle>
-                      <CardDescription>Distribution of projects across different statuses</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <ProjectStatusChart stats={stats} />
-                    </CardContent>
-                  </Card>
-                )}
+                <div className="grid gap-4 lg:grid-cols-3">
+                  {/* Projects by Status Chart */}
+                  {stats.total_projects > 0 && (
+                    <Card className="lg:col-span-2">
+                      <CardHeader>
+                        <CardTitle>Projects by Status</CardTitle>
+                        <CardDescription>Distribution of projects across different statuses</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <ProjectStatusChart stats={stats} />
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* System Health Card */}
+                  {health && (
+                    <Card>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle>System Health</CardTitle>
+                          <Badge
+                            variant="outline"
+                            className={health.status === 'ok'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'}
+                          >
+                            {health.status === 'ok' ? 'Healthy' : 'Degraded'}
+                          </Badge>
+                        </div>
+                        <CardDescription>Live indicators across the platform</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3 text-sm">
+                        <Row k="Database" v={health.database.reachable ? 'Reachable' : 'Unreachable'} ok={health.database.reachable} />
+                        <Row k="ML model" v={health.ml_model_loaded ? 'Loaded' : 'Not loaded'} ok={health.ml_model_loaded} />
+                        <Row k="Audit events / hr" v={`${health.audit_events_last_hour}`} ok={health.audit_events_last_hour >= 0} />
+                        <div className="pt-2 mt-2 border-t border-border">
+                          <p className="text-xs uppercase text-muted-foreground mb-1">Row counts</p>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                            {Object.entries(health.row_counts).map(([k, v]) => (
+                              <div key={k} className="flex justify-between">
+                                <span className="text-muted-foreground">{k}</span>
+                                <span className="font-medium">{v.toLocaleString()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+
               </>
             ) : null}
 
@@ -448,6 +524,48 @@ export default function DashboardProjectListPage() {
                 </CardHeader>
               </Card>
             </div>
+
+            {/* Recent Activity Feed (moved to bottom for visual hierarchy) */}
+            {recentActivity.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Recent Activity</CardTitle>
+                      <CardDescription>Most recent audit events across the platform</CardDescription>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/admin/audit-logs')}>
+                      View all <ArrowRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <ul className="divide-y">
+                    {recentActivity.map((row) => (
+                      <li key={row.id} className="py-2.5 flex items-start gap-3 text-sm">
+                        <span className="mt-1 inline-block h-2 w-2 rounded-full bg-primary shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate">
+                            <span className="font-medium">{row.user_name || 'System'}</span>
+                            <span className="text-muted-foreground"> · </span>
+                            <span className="font-mono text-xs text-muted-foreground">{row.action}</span>
+                            {row.entity_type && (
+                              <span className="text-muted-foreground"> on {row.entity_type}</span>
+                            )}
+                          </p>
+                          {row.details && (
+                            <p className="text-xs text-muted-foreground line-clamp-1">{row.details}</p>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(row.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
           </div>
         ) : (
           /* Regular User Dashboard */

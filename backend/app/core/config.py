@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Smart Construction API"
+    PROJECT_NAME: str = "Foresite API"
     API_V1_STR: str = "/api/v1"
     SECRET_KEY: str = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
     ALGORITHM: str = "HS256"
@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # Email — Resend (HTTP API, used on Render where SMTP is blocked)
     RESEND_API_KEY: str | None = None
-    RESEND_FROM_EMAIL: str = "Smart Construction <onboarding@resend.dev>"
+    RESEND_FROM_EMAIL: str = "Foresite <onboarding@resend.dev>"
 
     # Email — SMTP fallback (used locally; do NOT rely on this on Render)
     SMTP_EMAIL: str | None = None

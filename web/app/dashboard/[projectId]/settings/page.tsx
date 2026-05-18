@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/collapsible'
 import { Card, CardContent } from '@/components/ui/card'
 import { useAuth } from '@/lib/auth-context'
-import { updateMe } from '@/lib/api'
+import { updateMe, getProjectOverrides, updateProjectOverrides } from '@/lib/api'
+import { useProjectRole } from '@/lib/project-role-context'
 import { apiRequest } from '@/lib/api-client'
 import {
   BellRing,
@@ -23,6 +24,7 @@ import {
   Loader2,
   Mail,
   ShieldCheck,
+  SlidersHorizontal,
   UserCog,
 } from 'lucide-react'
 
@@ -60,11 +62,51 @@ function SectionHeader({
 export default function SettingsPage({ params }: SettingsPageProps) {
   const { projectId } = use(params)
   const { user, logout, refreshUser } = useAuth()
+  const userRole = useProjectRole()
+  const isPM = userRole === 'project_manager'
 
   // Section open states
   const [accountOpen, setAccountOpen] = useState(true)
   const [notifOpen, setNotifOpen] = useState(false)
   const [securityOpen, setSecurityOpen] = useState(false)
+  const [thresholdsOpen, setThresholdsOpen] = useState(false)
+
+  // Project thresholds
+  const [budgetThresholdOverride, setBudgetThresholdOverride] = useState<string>('')
+  const [thresholdsSaving, setThresholdsSaving] = useState(false)
+  const [thresholdsMsg, setThresholdsMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    if (!isPM) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const ov = await getProjectOverrides(projectId)
+        if (!cancelled) setBudgetThresholdOverride(ov.budget_alert_threshold_pct_override?.toString() ?? '')
+      } catch {
+        // silent
+      }
+    })()
+    return () => { cancelled = true }
+  }, [isPM, projectId])
+
+  const handleSaveThresholds = async () => {
+    setThresholdsSaving(true)
+    setThresholdsMsg(null)
+    try {
+      const raw = budgetThresholdOverride.trim()
+      const value = raw === '' ? null : Number(raw)
+      if (raw !== '' && (!Number.isFinite(value) || (value as number) <= 0 || (value as number) >= 100)) {
+        throw new Error('Threshold must be between 0 and 100 (exclusive). Leave empty to inherit the global default.')
+      }
+      await updateProjectOverrides(projectId, { budget_alert_threshold_pct_override: value })
+      setThresholdsMsg({ type: 'success', text: 'Project thresholds updated.' })
+    } catch (e) {
+      setThresholdsMsg({ type: 'error', text: e instanceof Error ? e.message : 'Failed to update thresholds' })
+    } finally {
+      setThresholdsSaving(false)
+    }
+  }
 
   // Account - change email
   const [editEmail, setEditEmail] = useState(user?.email || '')
@@ -254,6 +296,62 @@ export default function SettingsPage({ params }: SettingsPageProps) {
           </CollapsibleContent>
         </Card>
       </Collapsible>
+
+      {/* Project Thresholds (PM only) */}
+      {isPM && (
+        <Collapsible open={thresholdsOpen} onOpenChange={setThresholdsOpen}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <button type="button" className="w-full p-5 text-left cursor-pointer hover:bg-muted/30 transition-colors rounded-t-lg">
+                <SectionHeader
+                  icon={SlidersHorizontal}
+                  title="Project Thresholds"
+                  description="Override platform defaults for this project only."
+                  open={thresholdsOpen}
+                />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-0 px-5 pb-5">
+                <div className="space-y-3 rounded-lg border p-4">
+                  <div>
+                    <Label htmlFor="budget_threshold">Budget alert threshold (%)</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Spending past this % of budget pings the PM with an alert. Leave empty to use the
+                      platform default (80%). Must be between 0 and 100.
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <Input
+                      id="budget_threshold"
+                      type="number"
+                      min={1}
+                      max={99}
+                      step={1}
+                      placeholder="80 (default)"
+                      value={budgetThresholdOverride}
+                      onChange={(e) => setBudgetThresholdOverride(e.target.value)}
+                      className="max-w-[160px]"
+                    />
+                    <Button
+                      onClick={() => void handleSaveThresholds()}
+                      disabled={thresholdsSaving}
+                      size="sm"
+                    >
+                      {thresholdsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                    </Button>
+                  </div>
+                  {thresholdsMsg && (
+                    <p className={`text-xs ${thresholdsMsg.type === 'success' ? 'text-emerald-600' : 'text-destructive'}`}>
+                      {thresholdsMsg.text}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
 
       {/* Notifications */}
       <Collapsible open={notifOpen} onOpenChange={setNotifOpen}>

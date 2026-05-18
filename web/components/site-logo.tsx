@@ -22,7 +22,7 @@ export function SiteLogo({
     <div className={cn('flex items-center gap-2', className)}>
       <Image
         src={logoSrc}
-        alt="c-plan logo"
+        alt="Foresite logo"
         width={size}
         height={size}
         className={cn('object-contain flex-shrink-0 rounded-xl', imageClassName)}
@@ -30,7 +30,7 @@ export function SiteLogo({
       />
       {showText && (
         <span className={cn('font-bold', textClassName ?? 'text-xl')}>
-          C-plan
+          Foresite
         </span>
       )}
     </div>

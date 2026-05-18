@@ -21,6 +21,7 @@ from google.auth.transport import requests as google_requests
 
 from app.core.config import settings
 from app.core.security import create_access_token, create_refresh_token
+from app.core.audit import log_audit
 from app.models.user import User
 from app.models.project import ProjectMember, ProjectInvitation
 from app.repositories.user import UserRepository
@@ -114,7 +115,8 @@ class GoogleOAuthService:
                 # Email is verified by Google, so it's safe to link.
                 user = await UserRepository.link_google_id(db, user=user, google_id=google_id)
 
-        # 3. Brand-new user — create via Google.
+        # 3. Brand-new user — create via Google. Audit as REGISTER.
+        is_new_signup = False
         if not user:
             user = await UserRepository.create_oauth_user(
                 db,
@@ -122,11 +124,30 @@ class GoogleOAuthService:
                 full_name=full_name,
                 google_id=google_id,
             )
+            is_new_signup = True
 
         if not user.is_active:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
 
         await GoogleOAuthService._accept_pending_invitations(db, user)
+
+        # Stamp last_login_at + audit the event (REGISTER on first signup, LOGIN otherwise).
+        from datetime import datetime, timezone
+        user.last_login_at = datetime.now(timezone.utc)
+        db.add(user)
+        if is_new_signup:
+            await log_audit(
+                db, user_id=user.id, action="REGISTER", entity_type="user",
+                entity_id=str(user.id),
+                details=f"New account via Google: {user.email}",
+            )
+        else:
+            await log_audit(
+                db, user_id=user.id, action="LOGIN", entity_type="user",
+                entity_id=str(user.id),
+                details=f"Google login for {user.email}",
+            )
+        await db.commit()
 
         access = create_access_token(subject=user.id)
         refresh = create_refresh_token(subject=user.id)

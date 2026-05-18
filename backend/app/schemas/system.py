@@ -49,12 +49,21 @@ class AuditLogResponse(BaseModel):
     id: UUID
     project_id: UUID | None
     user_id: UUID | None
+    user_email: str | None = None
+    user_name: str | None = None
     action: str
     entity_type: str | None
     entity_id: str | None
     details: str | None
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+
+class AuditLogPage(BaseModel):
+    total: int
+    page: int
+    limit: int
+    data: list[AuditLogResponse]
 
 # Message
 class MessageResponse(BaseModel):
@@ -63,6 +72,10 @@ class MessageResponse(BaseModel):
     content: str
     is_read: bool
     created_at: datetime
+    type: str | None = None
+    entity_type: str | None = None
+    entity_id: UUID | None = None
+    project_id: UUID | None = None
     model_config = ConfigDict(from_attributes=True)
 
 # System Settings
@@ -113,12 +126,14 @@ class AnnouncementCreate(BaseModel):
     title: str
     content: str
     priority: str = "normal"  # low, normal, high, urgent
+    target_audience: str = "all"  # all | admins | project_managers
     expires_at: datetime | None = None
 
 class AnnouncementUpdate(BaseModel):
     title: str | None = None
     content: str | None = None
     priority: str | None = None
+    target_audience: str | None = None
     is_active: bool | None = None
     expires_at: datetime | None = None
 
@@ -128,6 +143,7 @@ class AnnouncementResponse(BaseModel):
     content: str
     priority: str
     is_active: bool
+    target_audience: str = "all"
     created_by: UUID
     created_at: datetime
     expires_at: datetime | None

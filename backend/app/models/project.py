@@ -51,6 +51,13 @@ class Project(Base):
     fiscal_year_start_month = Column(Integer, nullable=False, server_default="1")
     week_starts_on = Column(Integer, nullable=False, server_default="0")  # 0=Mon, 6=Sun
 
+    # Last-notified markers — prevent duplicate risk/budget alerts.
+    last_alert_risk_level = Column(String(20), nullable=True)
+    last_alert_budget_threshold = Column(Float, nullable=True)
+
+    # Per-project setting overrides (nullable = fall back to global system setting).
+    budget_alert_threshold_pct_override = Column(Float, nullable=True)
+
     clients = relationship("Client", back_populates="project", cascade="all, delete-orphan", lazy="selectin")
     suppliers = relationship("Supplier", back_populates="project", cascade="all, delete-orphan", lazy="selectin")
 

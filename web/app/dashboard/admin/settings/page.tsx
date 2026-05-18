@@ -104,14 +104,9 @@ export default function AdminSettingsPage() {
 
     return (
         <div className="p-8 space-y-8">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
-                    <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">System Settings</h1>
-                    <p className="text-muted-foreground mt-2">Configure platform-wide settings and preferences</p>
-                </div>
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">System Settings</h1>
+                <p className="text-muted-foreground mt-2">Configure platform-wide settings and preferences</p>
             </div>
 
             <div className="grid gap-6 max-w-4xl">

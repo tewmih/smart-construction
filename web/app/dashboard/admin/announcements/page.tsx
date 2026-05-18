@@ -46,6 +46,7 @@ export default function AdminAnnouncementsPage() {
     const [formData, setFormData] = useState({
         content: '',
         priority: 'normal',
+        target_audience: 'all' as 'all' | 'admins' | 'project_managers',
         expires_at: '',
     })
     const [saving, setSaving] = useState(false)
@@ -83,6 +84,7 @@ export default function AdminAnnouncementsPage() {
             setFormData({
                 content: announcement.content,
                 priority: announcement.priority,
+                target_audience: (announcement.target_audience as 'all' | 'admins' | 'project_managers') || 'all',
                 expires_at: announcement.expires_at
                     ? new Date(announcement.expires_at).toISOString().slice(0, 16)
                     : '',
@@ -92,6 +94,7 @@ export default function AdminAnnouncementsPage() {
             setFormData({
                 content: '',
                 priority: 'normal',
+                target_audience: 'all',
                 expires_at: '',
             })
         }
@@ -116,6 +119,7 @@ export default function AdminAnnouncementsPage() {
                 title: derivedTitle,
                 content: formData.content,
                 priority: formData.priority,
+                target_audience: formData.target_audience,
                 expires_at: formData.expires_at || undefined,
             }
 
@@ -212,14 +216,9 @@ export default function AdminAnnouncementsPage() {
     return (
         <div className="p-8 space-y-8">
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Announcements</h1>
-                        <p className="text-muted-foreground mt-2">Create and manage platform-wide announcements</p>
-                    </div>
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Announcements</h1>
+                    <p className="text-muted-foreground mt-2">Create and manage platform-wide announcements</p>
                 </div>
                 <Button onClick={() => handleOpenDialog()} className="gap-2">
                     <Plus className="h-4 w-4" />
@@ -313,7 +312,7 @@ export default function AdminAnnouncementsPage() {
                             />
                         </div>
 
-                        <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-4 sm:grid-cols-3">
                             <div className="space-y-2">
                                 <Label htmlFor="priority">Priority</Label>
                                 <Select
@@ -328,6 +327,23 @@ export default function AdminAnnouncementsPage() {
                                         <SelectItem value="normal">Normal</SelectItem>
                                         <SelectItem value="high">High</SelectItem>
                                         <SelectItem value="urgent">Urgent</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="target_audience">Audience</Label>
+                                <Select
+                                    value={formData.target_audience}
+                                    onValueChange={(value) => setFormData({ ...formData, target_audience: value as 'all' | 'admins' | 'project_managers' })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Users</SelectItem>
+                                        <SelectItem value="admins">Admins Only</SelectItem>
+                                        <SelectItem value="project_managers">Project Managers</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>

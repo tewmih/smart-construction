@@ -304,7 +304,7 @@ async def _do_transition(db, log_id: UUID, action: str, current_user: User):
     member = await ProjectMemberRepository().get_by_project_and_user(db, log.project_id, current_user.id)
     if not member:
         raise HTTPException(status_code=403, detail="Not a project member")
-    return await DailyLogService.transition_log(db, log_id, action, member.role)
+    return await DailyLogService.transition_log(db, log_id, action, member.role, actor_id=current_user.id)
 
 
 @logs_router.patch("/daily-logs/{log_id}/submit", response_model=DailyLogResponse, summary="Submit log (Site Engineer)")
@@ -323,10 +323,10 @@ async def pm_approve_log(log_id: UUID, db: DbSession, current_user: User = Depen
 async def reject_log(
     log_id: UUID, db: DbSession,
     body: DailyLogReject = None,
-    _: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> Any:
     reason = body.rejection_reason if body else "No reason provided"
-    return await DailyLogService.reject_log(db, log_id, rejection_reason=reason)
+    return await DailyLogService.reject_log(db, log_id, rejection_reason=reason, actor_id=current_user.id)
 
 
 # ── Sub-Entities: Manpower ──

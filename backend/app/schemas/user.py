@@ -24,5 +24,13 @@ class UserResponse(UserBase):
     id: UUID
     created_at: datetime
     updated_at: datetime
-    
+    last_login_at: datetime | None = None
+
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserPage(BaseModel):
+    total: int
+    page: int
+    limit: int
+    data: list[UserResponse]

@@ -304,9 +304,13 @@ def _evm(project: Project, planned_progress: float, actual_progress: float) -> E
 async def _logs_in_window(
     db: AsyncSession, project_id: UUID, start_utc: datetime, end_utc: datetime
 ) -> list[DailyLog]:
+    """Only PM-approved logs are eligible for reporting.
+    Submitted / consultant-approved / draft / rejected entries are excluded so reports
+    reflect ratified data only."""
     res = await db.execute(
         select(DailyLog)
         .where(DailyLog.project_id == project_id)
+        .where(DailyLog.status == "pm_approved")
         .where(DailyLog.date >= start_utc)
         .where(DailyLog.date <= end_utc)
     )
@@ -314,7 +318,12 @@ async def _logs_in_window(
 
 
 async def _all_logs(db: AsyncSession, project_id: UUID) -> list[DailyLog]:
-    res = await db.execute(select(DailyLog).where(DailyLog.project_id == project_id))
+    """Only PM-approved logs are eligible for reporting."""
+    res = await db.execute(
+        select(DailyLog)
+        .where(DailyLog.project_id == project_id)
+        .where(DailyLog.status == "pm_approved")
+    )
     return list(res.scalars().all())
 
 
@@ -406,6 +415,9 @@ async def _equipment_section(db: AsyncSession, project_id: UUID, period_info: Re
     period_idle = await _fetch_idle(db, [e.id for e in period_equip])
     cum_idle = await _fetch_idle(db, [e.id for e in cum_equip])
 
+    # Idle hours can live in two places: directly on the Equipment row (set at
+    # log-creation time via the daily-log form) OR as separate EquipmentIdle
+    # rows added through /equipment/{id}/idle. Both must contribute to totals.
     by_name: dict[str, dict] = defaultdict(lambda: {"used": 0.0, "idle": 0.0, "reasons": defaultdict(float)})
     idle_by_equip: dict[UUID, list[EquipmentIdle]] = defaultdict(list)
     for i in period_idle:
@@ -414,6 +426,13 @@ async def _equipment_section(db: AsyncSession, project_id: UUID, period_info: Re
     for e in period_equip:
         name = e.name or "Unnamed"
         by_name[name]["used"] += float(e.hours_used or 0.0)
+        # 1) Idle hours recorded inline on the Equipment row.
+        inline_idle = float(e.idle_hours or 0.0)
+        if inline_idle > 0:
+            by_name[name]["idle"] += inline_idle
+            inline_reason = (e.idle_reason or "unspecified").strip() or "unspecified"
+            by_name[name]["reasons"][inline_reason] += inline_idle
+        # 2) Idle hours from the child EquipmentIdle table.
         for i in idle_by_equip.get(e.id, []):
             by_name[name]["idle"] += float(i.hours_idle or 0.0)
             by_name[name]["reasons"][i.reason or "unspecified"] += float(i.hours_idle or 0.0)
@@ -436,8 +455,15 @@ async def _equipment_section(db: AsyncSession, project_id: UUID, period_info: Re
 
     period_used = sum(float(e.hours_used or 0.0) for e in period_equip)
     cum_used = sum(float(e.hours_used or 0.0) for e in cum_equip)
-    period_idle_h = sum(float(i.hours_idle or 0.0) for i in period_idle)
-    cum_idle_h = sum(float(i.hours_idle or 0.0) for i in cum_idle)
+    # Include both inline idle_hours and EquipmentIdle rows in the section totals.
+    period_idle_h = (
+        sum(float(e.idle_hours or 0.0) for e in period_equip)
+        + sum(float(i.hours_idle or 0.0) for i in period_idle)
+    )
+    cum_idle_h = (
+        sum(float(e.idle_hours or 0.0) for e in cum_equip)
+        + sum(float(i.hours_idle or 0.0) for i in cum_idle)
+    )
     overall_total = period_used + period_idle_h
     overall_util = (period_used / overall_total * 100.0) if overall_total > 0 else 0.0
 
@@ -616,12 +642,17 @@ async def _daily_logs_summary(db: AsyncSession, project_id: UUID, period_info: R
     equip = await _fetch_equipment(db, log_ids)
     idle = await _fetch_idle(db, [e.id for e in equip])
 
+    total_idle = (
+        sum(float(e.idle_hours or 0.0) for e in equip)
+        + sum(float(i.hours_idle or 0.0) for i in idle)
+    )
+
     return DailyLogsSummary(
         log_count=len(logs),
         by_status=dict(by_status),
         total_manpower_hours=round(sum(float(l.hours_worked or 0.0) for l in manpower), 2),
         total_equipment_hours=round(sum(float(e.hours_used or 0.0) for e in equip), 2),
-        equipment_idle_hours=round(sum(float(i.hours_idle or 0.0) for i in idle), 2),
+        equipment_idle_hours=round(total_idle, 2),
     )
 
 

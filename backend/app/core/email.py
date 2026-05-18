@@ -31,9 +31,9 @@ def send_invitation_email(to_email: str, project_name: str, token: str, user_exi
 
 def send_password_reset_email(to_email: str, token: str) -> bool:
     reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
-    subject = "Reset your password — Smart Construction"
+    subject = "Reset your password — Foresite"
     body = (
-        f"You requested a password reset for your Smart Construction account.\n\n"
+        f"You requested a password reset for your Foresite account.\n\n"
         f"Click the link below to set a new password (expires in 15 minutes):\n"
         f"{reset_link}\n\n"
         f"If you didn't request this, you can safely ignore this email.\n"

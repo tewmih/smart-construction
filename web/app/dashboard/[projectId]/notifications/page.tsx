@@ -1,18 +1,25 @@
 'use client'
 
 import { use, useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
+  AlertTriangle,
   Bell,
   CheckCircle2,
+  ClipboardList,
+  DollarSign,
   Info,
+  ListTodo,
   Loader2,
+  Megaphone,
+  UserPlus,
+  type LucideIcon,
 } from 'lucide-react'
 import { getProject, listMessages, markMessageRead } from '@/lib/api'
-import type { MessageRow, ProjectDetail } from '@/lib/api-types'
+import type { MessageRow, MessageType, ProjectDetail } from '@/lib/api-types'
 import { useProjectRole } from '@/lib/project-role-context'
 
 interface NotificationsPageProps {
@@ -26,6 +33,10 @@ type NotificationItem = {
   content: string
   time: string
   unread: boolean
+  type: string | null
+  entity_type: string | null
+  entity_id: string | null
+  project_id: string | null
 }
 
 function formatTime(iso: string) {
@@ -44,6 +55,43 @@ function mapRow(row: MessageRow): NotificationItem {
     content: row.content,
     time: formatTime(row.created_at),
     unread: !row.is_read,
+    type: row.type ?? null,
+    entity_type: row.entity_type ?? null,
+    entity_id: row.entity_id ?? null,
+    project_id: row.project_id ?? null,
+  }
+}
+
+const TYPE_VISUALS: Record<MessageType, { icon: LucideIcon; tone: string }> = {
+  log_submitted: { icon: ClipboardList, tone: 'bg-amber-50 border-amber-200 text-amber-700' },
+  log_consultant_approved: { icon: ClipboardList, tone: 'bg-indigo-50 border-indigo-200 text-indigo-700' },
+  log_approved: { icon: ClipboardList, tone: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+  log_rejected: { icon: ClipboardList, tone: 'bg-red-50 border-red-200 text-red-700' },
+  task_assigned: { icon: ListTodo, tone: 'bg-blue-50 border-blue-200 text-blue-700' },
+  member_added: { icon: UserPlus, tone: 'bg-violet-50 border-violet-200 text-violet-700' },
+  invitation: { icon: UserPlus, tone: 'bg-violet-50 border-violet-200 text-violet-700' },
+  announcement: { icon: Megaphone, tone: 'bg-sky-50 border-sky-200 text-sky-700' },
+  risk_alert: { icon: AlertTriangle, tone: 'bg-orange-50 border-orange-200 text-orange-700' },
+  budget_alert: { icon: DollarSign, tone: 'bg-rose-50 border-rose-200 text-rose-700' },
+}
+
+function visualsFor(type: string | null) {
+  if (type && type in TYPE_VISUALS) return TYPE_VISUALS[type as MessageType]
+  return { icon: Bell, tone: 'bg-slate-50 border-slate-200 text-slate-700' }
+}
+
+function deepLink(item: NotificationItem, fallbackProjectId: string): string | null {
+  const projectId = item.project_id || fallbackProjectId
+  if (!item.entity_type || !item.entity_id) return null
+  switch (item.entity_type) {
+    case 'daily_log':
+      return `/dashboard/${projectId}/logs/${item.entity_id}`
+    case 'task':
+      return `/dashboard/${projectId}/tasks/${item.entity_id}`
+    case 'project':
+      return `/dashboard/${item.entity_id}`
+    default:
+      return null
   }
 }
 
@@ -71,6 +119,7 @@ function FilterChip({
 export default function NotificationsPage({ params }: NotificationsPageProps) {
   const { projectId } = use(params)
   const userRole = useProjectRole()
+  const router = useRouter()
   const [filter, setFilter] = useState<NotificationFilter>('all')
   const [project, setProject] = useState<ProjectDetail | null>(null)
   const [items, setItems] = useState<NotificationItem[]>([])
@@ -134,6 +183,14 @@ export default function NotificationsPage({ params }: NotificationsPageProps) {
     }
   }
 
+  const handleClickItem = async (item: NotificationItem) => {
+    if (item.unread) {
+      await handleMarkRead(item.id)
+    }
+    const href = deepLink(item, projectId)
+    if (href) router.push(href)
+  }
+
   if (loading || !project) {
     return (
       <div className="flex justify-center py-24 text-muted-foreground">
@@ -172,31 +229,38 @@ export default function NotificationsPage({ params }: NotificationsPageProps) {
       </div>
 
       <div className="space-y-4">
-        {filteredNotifications.map((notification) => (
-          <Card
-            key={notification.id}
-            className={`overflow-hidden border shadow-sm transition-shadow hover:shadow-md cursor-pointer ${notification.unread ? 'border-l-4 border-l-blue-600' : ''}`}
-            onClick={() => notification.unread && handleMarkRead(notification.id)}
-          >
-            <CardContent className="p-0">
-              <div className="flex items-start gap-4 p-4 sm:p-5">
-                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-slate-200 bg-slate-50">
-                  <Bell className={`h-5 w-5 ${notification.unread ? 'text-blue-600' : 'text-slate-600'}`} />
-                </div>
+        {filteredNotifications.map((notification) => {
+          const { icon: Icon, tone } = visualsFor(notification.type)
+          const hasLink = deepLink(notification, projectId) !== null
+          return (
+            <Card
+              key={notification.id}
+              className={`overflow-hidden border shadow-sm transition-shadow hover:shadow-md cursor-pointer ${notification.unread ? 'border-l-4 border-l-blue-600' : ''}`}
+              onClick={() => void handleClickItem(notification)}
+            >
+              <CardContent className="p-0">
+                <div className="flex items-start gap-4 p-4 sm:p-5">
+                  <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-xl border ${tone}`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <p className="text-sm leading-6 text-foreground">{notification.content}</p>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground">{notification.time}</span>
-                      {notification.unread ? <span className="h-2.5 w-2.5 rounded-full bg-blue-700" /> : null}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <p className="text-sm leading-6 text-foreground">{notification.content}</p>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground">{notification.time}</span>
+                        {notification.unread ? <span className="h-2.5 w-2.5 rounded-full bg-blue-700" /> : null}
+                      </div>
                     </div>
+                    {hasLink && (
+                      <p className="mt-1 text-xs text-muted-foreground">Click to open</p>
+                    )}
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       {filteredNotifications.length === 0 ? (

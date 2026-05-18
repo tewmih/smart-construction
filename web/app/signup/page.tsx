@@ -80,7 +80,7 @@ function SignupForm() {
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12">
         <div className="flex items-center gap-2 text-primary-foreground">
           <Building2 className="h-10 w-10" />
-          <span className="font-bold text-2xl">c-plan</span>
+          <span className="font-bold text-2xl">Foresite</span>
         </div>
 
         <div className="space-y-6">
@@ -107,7 +107,7 @@ function SignupForm() {
         </div>
 
         <p className="text-sm text-primary-foreground/60">
-          &copy; {new Date().getFullYear()} c-plan. All rights reserved.
+          &copy; {new Date().getFullYear()} Foresite. All rights reserved.
         </p>
       </div>
 
@@ -117,7 +117,7 @@ function SignupForm() {
           <CardHeader className="space-y-1 text-center">
             <div className="flex items-center justify-center gap-2 mb-4 lg:hidden">
               <Building2 className="h-8 w-8 text-primary" />
-              <span className="font-bold text-xl text-foreground">c-plan</span>
+              <span className="font-bold text-xl text-foreground">Foresite</span>
             </div>
             <CardTitle className="text-2xl">Create an account</CardTitle>
             <CardDescription>

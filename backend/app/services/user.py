@@ -10,6 +10,7 @@ from app.schemas.user import UserCreate, UserUpdate
 from app.schemas.token import Token
 from app.repositories.user import UserRepository
 from app.core.security import verify_password, create_access_token, create_refresh_token
+from app.core.audit import log_audit
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,16 @@ class UserService:
                 detail="The user with this username already exists in the system.",
             )
         new_user = await UserRepository.create(db, user_in=user_in)
+
+        # Audit the signup. Self-attribute so the row carries the new user's id.
+        await log_audit(
+            db,
+            user_id=new_user.id,
+            action="REGISTER",
+            entity_type="user",
+            entity_id=str(new_user.id),
+            details=f"New account: {new_user.email}",
+        )
 
         # Auto-accept pending invitations for this email
         result = await db.execute(
@@ -42,8 +53,8 @@ class UserService:
             inv.status = "accepted"
             db.add(inv)
             logger.info(f"Auto-accepted invitation for {user_in.email} to project {inv.project_id}")
-        if pending:
-            await db.commit()
+        # Always commit so the audit row + (possibly) member rows are persisted.
+        await db.commit()
 
         return new_user
 
@@ -83,6 +94,20 @@ class UserService:
             logger.info(f"Auto-accepted invitation for {email} to project {inv.project_id}")
         if pending:
             await db.commit()
+
+        # Stamp last_login_at so admins can spot stale accounts + audit the login.
+        from datetime import datetime, timezone
+        user.last_login_at = datetime.now(timezone.utc)
+        db.add(user)
+        await log_audit(
+            db,
+            user_id=user.id,
+            action="LOGIN",
+            entity_type="user",
+            entity_id=str(user.id),
+            details=f"Email/password login for {user.email}",
+        )
+        await db.commit()
 
         access_token = create_access_token(subject=user.id)
         refresh_token = create_refresh_token(subject=user.id)

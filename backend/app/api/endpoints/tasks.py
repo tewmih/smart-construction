@@ -227,6 +227,16 @@ async def create_task(
 
     await _recalculate_project_progress(db, project_id)
 
+    # Notify the assignee if this task was assigned at creation time.
+    if task.assigned_to:
+        from app.services.notifications import notify
+        await notify(
+            db, user_id=task.assigned_to, type="task_assigned",
+            content=f"You were assigned to task '{task.name}'",
+            entity_type="task", entity_id=task.id, project_id=project_id,
+        )
+        await db.commit()
+
     # Re-fetch with assignee loaded
     result = await db.execute(
         select(Task).options(selectinload(Task.assignee)).where(Task.id == task.id)
@@ -313,6 +323,7 @@ async def update_task(
         or task_in.duration_days is not None
         or task_in.end_date is not None
     )
+    previous_assignee = task.assigned_to
 
     updated = await task_repo.update(db, task, task_in)
 
@@ -345,6 +356,17 @@ async def update_task(
         await db.commit()
 
     await _recalculate_project_progress(db, task.project_id)
+
+    # Notify the new assignee when assigned_to changed to a different non-null user.
+    if updated.assigned_to and updated.assigned_to != previous_assignee:
+        from app.services.notifications import notify
+        await notify(
+            db, user_id=updated.assigned_to, type="task_assigned",
+            content=f"You were assigned to task '{updated.name}'",
+            entity_type="task", entity_id=updated.id, project_id=task.project_id,
+        )
+        await db.commit()
+
     # Re-fetch with assignee loaded
     result = await db.execute(
         select(Task).options(selectinload(Task.assignee)).where(Task.id == updated.id)
