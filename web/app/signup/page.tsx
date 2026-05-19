@@ -80,7 +80,7 @@ function SignupForm() {
       {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12">
         <div className="flex items-center gap-3 text-primary-foreground">
-          <Image src="/logo-construction pro-1.png" alt="Foresite" width={48} height={48} className="h-12 w-12 object-contain" />
+          <Image src="/logo-construction pro-1.png" alt="Foresite" width={48} height={48} className="h-30 w-30 object-contain" />
           <span className="font-bold text-2xl">Foresite</span>
         </div>
 

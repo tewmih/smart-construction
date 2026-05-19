@@ -17,29 +17,29 @@ export function HeroSection({ onOpenDashboard, isAuthenticated }: HeroSectionPro
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
         }} />
       </div>
-      
+
       <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-8 items-center">
           {/* Left Content */}
           <div className="space-y-8">
             <div className="flex items-center gap-2 text-primary-foreground/80">
               <Building2 className="h-6 w-6" />
-              <span className="text-sm font-medium uppercase tracking-wider">Smart Construction Platform</span>
+              <span className="text-sm font-medium uppercase tracking-wider">Construction Project Management</span>
             </div>
-            
+
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl text-balance">
               Building Better,{' '}
               <span className="text-accent">Building Smarter</span>
             </h1>
-            
+
             <p className="text-lg text-primary-foreground/80 max-w-xl leading-relaxed">
-              Streamline your construction projects with our comprehensive management platform. 
+              Streamline your construction projects with our comprehensive management platform.
               Track progress, manage resources, and predict risks with AI-powered insights.
             </p>
-            
+
             <div className="flex flex-wrap gap-4">
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 variant="secondary"
                 className="gap-2 font-semibold cursor-pointer"
                 onClick={onOpenDashboard}
@@ -47,37 +47,22 @@ export function HeroSection({ onOpenDashboard, isAuthenticated }: HeroSectionPro
                 {isAuthenticated ? 'Open Dashboard' : 'Get Started'}
                 <ArrowRight className="h-4 w-4" />
               </Button>
-              <Button 
-                size="lg" 
-                variant="outline" 
+              <Button
+                size="lg"
+                variant="outline"
                 className="border-primary-foreground/30 text-primary hover:bg-primary-foreground/10 hover:text-primary-foreground cursor-pointer"
               >
                 Learn More
               </Button>
             </div>
-            
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-8 pt-8 border-t border-primary-foreground/20">
-              <div>
-                <div className="text-3xl font-bold">150+</div>
-                <div className="text-sm text-primary-foreground/70">Active Projects</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold">98%</div>
-                <div className="text-sm text-primary-foreground/70">On-Time Delivery</div>
-              </div>
-              <div>
-                <div className="text-3xl font-bold">500+</div>
-                <div className="text-sm text-primary-foreground/70">Team Members</div>
-              </div>
-            </div>
+
           </div>
-          
+
           {/* Right Image Placeholder */}
           <div className="relative hidden lg:block">
             <div className="aspect-[4/3] rounded-lg bg-primary-foreground/10 overflow-hidden">
-              <img 
-                src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&h=600&fit=crop" 
+              <img
+                src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&h=600&fit=crop"
                 alt="Construction site"
                 className="w-full h-full object-cover opacity-80"
               />

@@ -9,9 +9,9 @@ import './globals.css'
 const ebGaramond = EB_Garamond({ subsets: ['latin'], variable: '--font-sans' })
 
 export const metadata: Metadata = {
-  title: 'Foresite - Smart Construction Management',
+  title: 'Foresite - onstruction Project Management',
   description: 'Streamline your construction projects with our comprehensive management platform. Track progress, manage resources, and predict risks with AI-powered insights.',
-  generator: 'v0.app',
+  generator: 'Group beta',
   icons: {
     icon: [
       {
