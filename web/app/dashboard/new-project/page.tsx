@@ -17,9 +17,10 @@ import {
 } from '@/components/ui/select'
 import { ArrowLeft, Loader2, Plus } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
-import { createProject, listClients } from '@/lib/api'
+import { createProject, listClients, listProjects } from '@/lib/api'
 import type { ClientListItem } from '@/lib/api-types'
 import { SiteLogo } from '@/components/site-logo'
+import { useLanguage } from '@/lib/language-context'
 
 function dateInputToApiDateTime(date: string): string | undefined {
   if (!date) return undefined
@@ -29,6 +30,7 @@ function dateInputToApiDateTime(date: string): string | undefined {
 export default function NewProjectPage() {
   const router = useRouter()
   const { isAuthenticated } = useAuth()
+  const { t } = useLanguage()
   const [isLoading, setIsLoading] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [clientsLoading, setClientsLoading] = useState(true)
@@ -63,10 +65,30 @@ export default function NewProjectPage() {
       ; (async () => {
         setClientsLoading(true)
         try {
-          const { data } = await listClients({ limit: 100 })
+          const { data: projectsData } = await listProjects({ limit: 100 })
+          const allClients: ClientListItem[] = []
+          const seenNames = new Set<string>()
+          for (const p of projectsData) {
+            try {
+              const clientsData = await listClients(p.id, { limit: 100 })
+              for (const c of clientsData) {
+                const normName = c.name.trim().toLowerCase()
+                if (!seenNames.has(normName)) {
+                  seenNames.add(normName)
+                  allClients.push(c)
+                }
+              }
+            } catch (err) {
+              console.error('Failed to load clients for project', p.id, err)
+            }
+          }
           if (!cancelled) {
-            setClients(data)
-            if (data.length === 0) setClientMode('new')
+            setClients(allClients)
+            if (allClients.length === 0) {
+              setClientMode('new')
+            } else {
+              setClientMode('existing')
+            }
           }
         } catch {
           if (!cancelled) {
@@ -110,12 +132,12 @@ export default function NewProjectPage() {
     e.preventDefault()
     const clientFields = getClientFields()
     if (!clientFields) {
-      setSubmitError('Please select an existing client or add a new one.')
+      setSubmitError(t('newProject.selectClientErr'))
       return
     }
     const totalBudget = Number.parseFloat(formData.total_budget)
     if (!Number.isFinite(totalBudget) || totalBudget < 0) {
-      setSubmitError('Enter a valid total budget (0 or greater).')
+      setSubmitError(t('newProject.validBudgetErr'))
       return
     }
     setSubmitError(null)
@@ -142,12 +164,12 @@ export default function NewProjectPage() {
         response.client?.name &&
         response.client.name !== clientFields.client_name
       ) {
-        alert(`Project created. Linked to existing client: ${response.client.name}`)
+        alert(t('newProject.linkedExistingClient').replace('{name}', response.client.name))
       }
 
       router.push(`/dashboard/${created.id}`)
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Could not create project.')
+      setSubmitError(err instanceof Error ? err.message : t('newProject.failedToCreate'))
     } finally {
       setIsLoading(false)
     }
@@ -181,19 +203,19 @@ export default function NewProjectPage() {
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">Create New Project</CardTitle>
+            <CardTitle className="text-2xl">{t('newProject.title')}</CardTitle>
             <CardDescription>
-              Set up a new construction project. Select an existing client or add a new one.
+              {t('newProject.description')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="name">Project Name *</Label>
+                <Label htmlFor="name">{t('newProject.projectName')}</Label>
                 <Input
                   id="name"
                   name="name"
-                  placeholder="e.g., Commercial Building Phase 1"
+                  placeholder={t('newProject.projectNamePlaceholder')}
                   value={formData.name}
                   onChange={handleChange}
                   required
@@ -201,11 +223,11 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">{t('newProject.projectDesc')}</Label>
                 <Textarea
                   id="description"
                   name="description"
-                  placeholder="Brief description of the project..."
+                  placeholder={t('newProject.projectDescPlaceholder')}
                   rows={3}
                   value={formData.description}
                   onChange={handleChange}
@@ -213,11 +235,11 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="location">Location *</Label>
+                <Label htmlFor="location">{t('newProject.location')}</Label>
                 <Input
                   id="location"
                   name="location"
-                  placeholder="e.g., Bole, Addis Ababa"
+                  placeholder={t('newProject.locationPlaceholder')}
                   value={formData.location}
                   onChange={handleChange}
                   required
@@ -225,26 +247,26 @@ export default function NewProjectPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="total_budget">Total Budget (Contract Value) *</Label>
+                <Label htmlFor="total_budget">{t('newProject.totalBudget')}</Label>
                 <Input
                   id="total_budget"
                   name="total_budget"
                   type="number"
                   min={0}
                   step="0.01"
-                  placeholder="e.g., 15000000"
+                  placeholder={t('newProject.totalBudgetPlaceholder')}
                   value={formData.total_budget}
                   onChange={handleChange}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Numeric total budget in ETB.
+                  {t('newProject.totalBudgetDesc')}
                 </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="planned_start_date">Planned Start Date *</Label>
+                  <Label htmlFor="planned_start_date">{t('newProject.plannedStart')}</Label>
                   <Input
                     id="planned_start_date"
                     name="planned_start_date"
@@ -255,7 +277,7 @@ export default function NewProjectPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="planned_end_date">Planned End Date *</Label>
+                  <Label htmlFor="planned_end_date">{t('newProject.plannedEnd')}</Label>
                   <Input
                     id="planned_end_date"
                     name="planned_end_date"
@@ -269,11 +291,11 @@ export default function NewProjectPage() {
 
               {/* Client Section */}
               <div className="space-y-3">
-                <Label className="text-base font-semibold">Client *</Label>
+                <Label className="text-base font-semibold">{t('newProject.client')}</Label>
 
                 {clientsLoading ? (
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Loading clients...
+                    <Loader2 className="h-4 w-4 animate-spin" /> {t('newProject.loadingClients')}
                   </p>
                 ) : (
                   <>
@@ -285,7 +307,7 @@ export default function NewProjectPage() {
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder={clients.length === 0 ? 'No clients yet — add one below' : 'Select a client'} />
+                        <SelectValue placeholder={clients.length === 0 ? t('newProject.noClientsPlaceholder') : t('newProject.selectClient')} />
                       </SelectTrigger>
                       <SelectContent>
                         <div className="max-h-48 overflow-y-auto">
@@ -305,7 +327,7 @@ export default function NewProjectPage() {
 
                     {clientMode === 'existing' && selectedClient && (
                       <p className="text-xs text-muted-foreground">
-                        Selected: <span className="font-medium">{selectedClient.name}</span>
+                        {t('newProject.selected')} <span className="font-medium">{selectedClient.name}</span>
                         {selectedClient.contact_email && <> — {selectedClient.contact_email}</>}
                       </p>
                     )}
@@ -313,7 +335,7 @@ export default function NewProjectPage() {
                     {clientMode === 'new' ? (
                       <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium">New Client Details</p>
+                          <p className="text-sm font-medium">{t('newProject.newClientDetails')}</p>
                           <Button
                             type="button"
                             variant="ghost"
@@ -328,60 +350,60 @@ export default function NewProjectPage() {
                               setNewClientPhone('')
                             }}
                           >
-                            Cancel
+                            {t('newProject.cancel')}
                           </Button>
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                           <div className="space-y-2">
-                            <Label htmlFor="client_name">Client Name *</Label>
+                            <Label htmlFor="client_name">{t('newProject.clientName')}</Label>
                             <Input
                               id="client_name"
-                              placeholder="e.g., Acme Construction Co."
+                              placeholder={t('newProject.clientNamePlaceholder')}
                               value={newClientName}
                               onChange={(e) => setNewClientName(e.target.value)}
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="client_email">Client Email *</Label>
+                            <Label htmlFor="client_email">{t('newProject.clientEmail')}</Label>
                             <Input
                               id="client_email"
                               type="email"
-                              placeholder="e.g., contact@acme.com"
+                              placeholder={t('newProject.clientEmailPlaceholder')}
                               value={newClientEmail}
                               onChange={(e) => setNewClientEmail(e.target.value)}
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="client_tin">TIN Number</Label>
+                            <Label htmlFor="client_tin">{t('newProject.clientTin')}</Label>
                             <Input
                               id="client_tin"
-                              placeholder="Ethiopian Tax ID"
+                              placeholder={t('newProject.clientTinPlaceholder')}
                               value={newClientTin}
                               onChange={(e) => setNewClientTin(e.target.value)}
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="client_phone">Contact Phone</Label>
+                            <Label htmlFor="client_phone">{t('newProject.clientPhone')}</Label>
                             <Input
                               id="client_phone"
                               type="tel"
-                              placeholder="+251 912 345 678"
+                              placeholder={t('newProject.clientPhonePlaceholder')}
                               value={newClientPhone}
                               onChange={(e) => setNewClientPhone(e.target.value)}
                             />
                           </div>
                           <div className="space-y-2 sm:col-span-2">
-                            <Label htmlFor="client_address">Address</Label>
+                            <Label htmlFor="client_address">{t('newProject.clientAddress')}</Label>
                             <Input
                               id="client_address"
-                              placeholder="Physical address"
+                              placeholder={t('newProject.clientAddressPlaceholder')}
                               value={newClientAddress}
                               onChange={(e) => setNewClientAddress(e.target.value)}
                             />
                           </div>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          If a client with this email already exists, the project will be linked to them automatically.
+                          {t('newProject.clientAutoLinkDesc')}
                         </p>
                       </div>
                     ) : (
@@ -396,7 +418,7 @@ export default function NewProjectPage() {
                         }}
                       >
                         <Plus className="h-3.5 w-3.5" />
-                        Add New Client
+                        {t('newProject.addNewClient')}
                       </Button>
                     )}
                   </>
@@ -412,17 +434,17 @@ export default function NewProjectPage() {
               <div className="flex flex-wrap items-center justify-end gap-4 pt-4 border-t border-border">
                 <Link href="/dashboard">
                   <Button type="button" variant="outline">
-                    Cancel
+                    {t('newProject.cancel')}
                   </Button>
                 </Link>
                 <Button type="submit" disabled={isLoading || !isClientValid}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
+                      {t('newProject.creating')}
                     </>
                   ) : (
-                    'Create Project'
+                    t('newProject.createProject')
                   )}
                 </Button>
               </div>

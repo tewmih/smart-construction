@@ -44,21 +44,23 @@ import type { TaskListItem, EnrichedMemberRow, TaskActivityItem, TaskBudgetSumma
 import type { TaskStatus } from '@/lib/domain'
 import { useProjectRole } from '@/lib/project-role-context'
 import { toast } from 'sonner'
+import { useLanguage } from '@/lib/language-context'
 
 interface TaskDetailPageProps {
   params: Promise<{ projectId: string; taskId: string }>
 }
 
-const statusConfig: Record<TaskStatus, { label: string; className: string }> = {
-  pending: { label: 'Pending', className: 'bg-slate-100 text-slate-700' },
-  in_progress: { label: 'In Progress', className: 'bg-blue-100 text-blue-700' },
-  completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700' },
+const statusConfig: Record<TaskStatus, { labelKey: string; className: string }> = {
+  pending: { labelKey: 'tasksPage.pending', className: 'bg-slate-100 text-slate-700' },
+  in_progress: { labelKey: 'tasksPage.inProgress', className: 'bg-blue-100 text-blue-700' },
+  completed: { labelKey: 'tasksPage.completed', className: 'bg-emerald-100 text-emerald-700' },
 }
 
 export default function TaskDetailPage({ params }: TaskDetailPageProps) {
   const { projectId, taskId } = use(params)
   const router = useRouter()
   const userRole = useProjectRole()
+  const { t } = useLanguage()
 
   const [task, setTask] = useState<TaskListItem | null>(null)
   const [budgetSummary, setBudgetSummary] = useState<TaskBudgetSummary | null>(null)
@@ -124,7 +126,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
           setEditWeight(String(t.weight ?? 0))
           setEditAssignee(t.assigned_to ?? null)
         } catch {
-          if (!cancelled) setError('Failed to load task')
+          if (!cancelled) setError(t('taskDetailPage.taskNotFound'))
         } finally {
           if (!cancelled) setLoading(false)
         }
@@ -151,12 +153,12 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
         }
       await updateTask(taskId, body)
       // Reload
-      const t = await getTask(taskId)
-      setTask(t)
+      const taskRes = await getTask(taskId)
+      setTask(taskRes)
       setEditing(false)
-      toast.success('Task updated successfully')
+      toast.success(t('taskDetailPage.taskUpdated'))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to update task')
+      toast.error(e instanceof Error ? e.message : t('taskDetailPage.failedToUpdate'))
     } finally {
       setSaving(false)
     }
@@ -175,9 +177,9 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
   if (error || !task) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
-        <p>{error || 'Task not found'}</p>
+        <p>{error || t('taskDetailPage.taskNotFound')}</p>
         <Button variant="outline" className="mt-4" onClick={() => router.back()}>
-          Go Back
+          {t('taskDetailPage.goBack')}
         </Button>
       </div>
     )
@@ -191,10 +193,10 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{task.title}</h1>
-          <p className="text-sm text-muted-foreground">Task details and management</p>
+          <p className="text-sm text-muted-foreground">{t('taskDetailPage.subtitle')}</p>
         </div>
         <Badge className={statusConfig[task.status]?.className}>
-          {statusConfig[task.status]?.label}
+          {t(statusConfig[task.status]?.labelKey)}
         </Badge>
         {(canEdit || canEditProgress) && (
           editing ? (
@@ -209,12 +211,12 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
               setEditAssignee(task.assigned_to ?? null)
             }}>
               <X className="h-4 w-4" />
-              Cancel
+              {t('taskDetailPage.cancel')}
             </Button>
           ) : (
             <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditing(true)}>
               <PencilLine className="h-4 w-4" />
-              {canEdit ? 'Edit' : 'Update Progress'}
+              {canEdit ? t('taskDetailPage.edit') : t('taskDetailPage.updateProgress')}
             </Button>
           )
         )}
@@ -225,11 +227,11 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
           {/* Task Information */}
           <Card>
             <CardHeader>
-              <CardTitle>Task Information</CardTitle>
+              <CardTitle>{t('taskDetailPage.information')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="space-y-2">
-                <Label>Task Name</Label>
+                <Label>{t('taskDetailPage.name')}</Label>
                 <Input
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
@@ -239,21 +241,21 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Status</Label>
+                  <Label>{t('taskDetailPage.status')}</Label>
                   <Select value={editStatus} onValueChange={(v) => setEditStatus(v as TaskStatus)} disabled={!editing}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="pending">{t('tasksPage.pending')}</SelectItem>
+                      <SelectItem value="in_progress">{t('tasksPage.inProgress')}</SelectItem>
+                      <SelectItem value="completed">{t('tasksPage.completed')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Weight (%)</Label>
+                  <Label>{t('taskDetailPage.weight')}</Label>
                   <Input
                     type="number"
                     min={0}
@@ -264,13 +266,13 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
                     disabled={!editing || !canEdit}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Task importance out of 100%
+                    {t('taskDetailPage.weightDesc')}
                   </p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Progress (%)</Label>
+                <Label>{t('taskDetailPage.progress')}</Label>
                 <Input
                   type="number"
                   min={0}
@@ -283,7 +285,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Start Date</Label>
+                  <Label>{t('taskDetailPage.startDate')}</Label>
                   <Input
                     type="date"
                     value={editStartDate}
@@ -292,7 +294,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>End Date</Label>
+                  <Label>{t('taskDetailPage.endDate')}</Label>
                   <Input
                     type="date"
                     value={editEndDate}
@@ -303,7 +305,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
               </div>
 
               <div className="space-y-2">
-                <Label>Assign to</Label>
+                <Label>{t('taskDetailPage.assignTo')}</Label>
                 <Popover open={assigneePopoverOpen} onOpenChange={setAssigneePopoverOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" type="button" className="w-full justify-start gap-2 font-normal" disabled={!editing}>
@@ -319,7 +321,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
                       ) : (
                         <>
                           <UserCircle2 className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-muted-foreground">Unassigned</span>
+                          <span className="text-muted-foreground">{t('taskDetailPage.unassigned')}</span>
                         </>
                       )}
                     </Button>
@@ -331,7 +333,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
                       onClick={() => { setEditAssignee(null); setAssigneePopoverOpen(false) }}
                     >
                       <UserCircle2 className="h-6 w-6 text-muted-foreground" />
-                      <span>Unassigned</span>
+                      <span>{t('taskDetailPage.unassigned')}</span>
                     </button>
                     <div className="max-h-48 overflow-y-auto">
                       {members.map((m) => {
@@ -362,7 +364,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
                 <div className="flex justify-end pt-2">
                   <Button onClick={() => void handleSave()} disabled={saving} className="gap-2">
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    Save Changes
+                    {t('taskDetailPage.saveChanges')}
                   </Button>
                 </div>
               )}
@@ -376,12 +378,12 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
                   <GitBranch className="h-4 w-4" />
-                  Dependencies
+                  {t('taskDetailPage.dependencies')}
                 </CardTitle>
                 {canEdit && !depAdding && (
                   <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={() => setDepAdding(true)}>
                     <Plus className="h-3.5 w-3.5" />
-                    Add
+                    {t('tasksPage.addActivity').replace(/Activity|ክንዋኔ/i, '') || 'Add'}
                   </Button>
                 )}
               </div>
@@ -389,7 +391,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
             <CardContent className="space-y-2">
               {depAdding && (
                 <div className="space-y-2 rounded-lg border p-3">
-                  <p className="text-xs font-medium text-muted-foreground">Must complete before this task:</p>
+                  <p className="text-xs font-medium text-muted-foreground">{t('taskDetailPage.mustCompleteBefore')}</p>
                   <div className="max-h-40 overflow-y-auto space-y-1">
                     {allTasks
                       .filter(t => !deps.some(d => d.depends_on_task_id === t.id))
@@ -418,17 +420,17 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
                         </button>
                       ))}
                     {allTasks.filter(t => !deps.some(d => d.depends_on_task_id === t.id)).length === 0 && (
-                      <p className="text-xs text-muted-foreground text-center py-2">No available tasks to add.</p>
+                      <p className="text-xs text-muted-foreground text-center py-2">{t('taskDetailPage.noAvailableTasks')}</p>
                     )}
                   </div>
                   <Button variant="outline" size="sm" className="w-full" onClick={() => setDepAdding(false)}>
-                    Done
+                    {t('taskDetailPage.done')}
                   </Button>
                 </div>
               )}
 
               {deps.length === 0 && !depAdding && (
-                <p className="text-xs text-muted-foreground text-center py-2">No dependencies.</p>
+                <p className="text-xs text-muted-foreground text-center py-2">{t('taskDetailPage.noDependencies')}</p>
               )}
 
               {deps.map((dep) => {
@@ -445,7 +447,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
                           : 'border-amber-300 text-amber-700'
                           }`}
                       >
-                        {blockerTask?.status === 'completed' ? 'Done' : 'Blocking'}
+                        {blockerTask?.status === 'completed' ? t('taskDetailPage.done') : t('taskDetailPage.blocking')}
                       </Badge>
                     </div>
                     {canEdit && (
@@ -470,7 +472,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
           {/* Activities */}
           <Card>
             <CardHeader>
-              <CardTitle>Activities</CardTitle>
+              <CardTitle>{t('taskDetailPage.activities')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {activities.map((act) => (
@@ -522,11 +524,11 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
                   {editingActId === act.id && (
                     <div className="space-y-2 rounded-lg border bg-muted/30 p-2">
                       <div className="grid grid-cols-[1fr_80px] gap-2">
-                        <Input className="h-7 text-sm" value={editActName} onChange={e => setEditActName(e.target.value)} placeholder="Activity name" />
+                        <Input className="h-7 text-sm" value={editActName} onChange={e => setEditActName(e.target.value)} placeholder={t('taskDetailPage.activityName')} />
                         <Input className="h-7 text-sm" type="number" min={1} max={100} value={editActPct} onChange={e => setEditActPct(e.target.value)} placeholder="%" />
                       </div>
                       <div className="flex gap-2 justify-end">
-                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingActId(null)}>Cancel</Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingActId(null)}>{t('taskDetailPage.cancel')}</Button>
                         <Button size="sm" className="h-7 px-2 text-xs" disabled={savingAct || !editActName.trim()}
                           onClick={async () => {
                             setSavingAct(true)
@@ -543,7 +545,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
                             } catch (e) { toast.error(e instanceof Error ? e.message : 'Failed') }
                             finally { setSavingAct(false) }
                           }}>
-                          {savingAct ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+                          {savingAct ? <Loader2 className="h-3 w-3 animate-spin" /> : t('taskDetailPage.saveChanges')}
                         </Button>
                       </div>
                     </div>
@@ -551,20 +553,20 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
                 </div>
               ))}
               {activities.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-2">No activities. Add activities to track progress.</p>
+                <p className="text-xs text-muted-foreground text-center py-2">{t('taskDetailPage.noActivities')}</p>
               )}
               {canEdit && usedActPct >= 100 && (
                 <p className="text-xs text-center text-muted-foreground rounded-lg border border-dashed py-2">
-                  100% allocated — delete an activity to add a new one.
+                  {t('taskDetailPage.allocated100')}
                 </p>
               )}
               {canEdit && usedActPct < 100 && (
                 <div className="rounded-lg border p-3 space-y-2">
                   <div className="grid grid-cols-[1fr_80px] gap-2">
-                    <Input placeholder="Activity name" value={newActName} onChange={(e) => setNewActName(e.target.value)} className="h-8 text-sm" />
+                    <Input placeholder={t('taskDetailPage.activityName')} value={newActName} onChange={(e) => setNewActName(e.target.value)} className="h-8 text-sm" />
                     <Input type="number" min={1} max={remainingActPct} placeholder="%" value={newActPct} onChange={(e) => setNewActPct(e.target.value)} className="h-8 text-sm" />
                   </div>
-                  <p className="text-xs text-muted-foreground">Leave % empty to use remaining ({remainingActPct}%)</p>
+                  <p className="text-xs text-muted-foreground">{t('taskDetailPage.leaveEmptyAuto').replace('{pct}', String(remainingActPct))}</p>
                   <Button size="sm" className="w-full gap-1" disabled={addingAct || !newActName.trim()}
                     onClick={async () => {
                       setAddingAct(true)
@@ -587,7 +589,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
                       }
                     }}>
                     {addingAct ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                    Add Activity
+                    {t('taskDetailPage.addActivity')}
                   </Button>
                 </div>
               )}
@@ -603,23 +605,23 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
-                  Budget
+                  {t('taskDetailPage.budget')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Allocated</span>
+                    <span className="text-muted-foreground">{t('taskDetailPage.allocated')}</span>
                     <span className="font-medium">ETB {budgetSummary.allocated_budget.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Spent</span>
+                    <span className="text-muted-foreground">{t('taskDetailPage.spent')}</span>
                     <span className={`font-medium ${budgetSummary.status === 'over_budget' ? 'text-red-600' : ''}`}>
                       ETB {budgetSummary.total_spent.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Remaining</span>
+                    <span className="text-muted-foreground">{t('taskDetailPage.remaining')}</span>
                     <span className={`font-semibold ${budgetSummary.remaining_budget < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
                       ETB {budgetSummary.remaining_budget.toLocaleString()}
                     </span>
@@ -634,42 +636,46 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
                       }`}
                   />
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{budgetSummary.budget_utilization_pct.toFixed(1)}% used</span>
+                    <span className="text-muted-foreground">
+                      {t('taskDetailPage.used').replace('{pct}', budgetSummary.budget_utilization_pct.toFixed(1))}
+                    </span>
                     {budgetSummary.status === 'over_budget' && (
                       <span className="flex items-center gap-1 text-red-600">
                         <AlertTriangle className="h-3 w-3" />
-                        Over budget
+                        {t('taskDetailPage.overBudget')}
                       </span>
                     )}
                     {budgetSummary.status === 'on_budget' && (
                       <span className="flex items-center gap-1 text-amber-600">
                         <TrendingUp className="h-3 w-3" />
-                        Near limit
+                        {t('taskDetailPage.nearLimit')}
                       </span>
                     )}
                     {budgetSummary.status === 'under_budget' && (
                       <span className="flex items-center gap-1 text-emerald-600">
                         <TrendingDown className="h-3 w-3" />
-                        On track
+                        {t('taskDetailPage.onTrack')}
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="space-y-1 pt-2 border-t">
-                  <p className="text-xs font-medium text-muted-foreground">Cost Breakdown</p>
+                  <p className="text-xs font-medium text-muted-foreground">{t('taskDetailPage.costBreakdown')}</p>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Labor</span>
+                    <span className="text-muted-foreground">{t('taskDetailPage.labor')}</span>
                     <span>ETB {budgetSummary.spent_labor.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Materials</span>
+                    <span className="text-muted-foreground">{t('taskDetailPage.materials')}</span>
                     <span>ETB {budgetSummary.spent_materials.toLocaleString()}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Equipment</span>
+                    <span className="text-muted-foreground">{t('taskDetailPage.equipment')}</span>
                     <span>ETB {budgetSummary.spent_equipment.toLocaleString()}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground pt-1">From {budgetSummary.log_count} daily logs</p>
+                  <p className="text-xs text-muted-foreground pt-1">
+                    {t('taskDetailPage.fromLogs').replace('{count}', String(budgetSummary.log_count))}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -678,32 +684,32 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
-                  Budget
+                  {t('taskDetailPage.budget')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Allocated</span>
+                  <span className="text-muted-foreground">{t('taskDetailPage.allocated')}</span>
                   <span className="font-medium">ETB {task.allocated_budget.toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Spent</span>
+                  <span className="text-muted-foreground">{t('taskDetailPage.spent')}</span>
                   <span className="font-medium">ETB 0</span>
                 </div>
                 <Progress value={0} className="h-2" />
-                <p className="text-xs text-muted-foreground text-center pt-1">No expenses logged yet</p>
+                <p className="text-xs text-muted-foreground text-center pt-1">{t('taskDetailPage.noExpenses')}</p>
               </CardContent>
             </Card>
           ) : null}
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Progress</CardTitle>
+              <CardTitle className="text-sm">{t('taskDetailPage.completion')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Completion</span>
+                  <span className="text-muted-foreground">{t('taskDetailPage.completion')}</span>
                   <span className="font-medium">{task.progress_percentage}%</span>
                 </div>
                 <Progress
@@ -716,18 +722,18 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">Timeline</CardTitle>
+              <CardTitle className="text-sm">{t('taskDetailPage.timeline')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Start:</span>
-                <span>{task.start_date ? new Date(task.start_date).toLocaleDateString() : 'Not set'}</span>
+                <span className="text-muted-foreground">{t('taskDetailPage.startDate')}:</span>
+                <span>{task.start_date ? new Date(task.start_date).toLocaleDateString() : t('taskDetailPage.notSet')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">End:</span>
-                <span>{task.end_date ? new Date(task.end_date).toLocaleDateString() : 'Not set'}</span>
+                <span className="text-muted-foreground">{t('taskDetailPage.endDate')}:</span>
+                <span>{task.end_date ? new Date(task.end_date).toLocaleDateString() : t('taskDetailPage.notSet')}</span>
               </div>
             </CardContent>
           </Card>
@@ -735,7 +741,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
           {task.assignee && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Assigned To</CardTitle>
+                <CardTitle className="text-sm">{t('taskDetailPage.assignedTo')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
@@ -757,17 +763,17 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
           {canEdit && (
             <Card className="border-destructive/50">
               <CardHeader>
-                <CardTitle className="text-base text-destructive">Danger Zone</CardTitle>
+                <CardTitle className="text-base text-destructive">{t('taskDetailPage.dangerZone')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Button
                   variant="destructive"
                   className="w-full gap-2"
                   onClick={async () => {
-                    if (!confirm('Are you sure you want to delete this task? This action cannot be undone.')) return
+                    if (!confirm(t('taskDetailPage.confirmDelete'))) return
                     try {
                       await deleteTask(taskId)
-                      toast.success('Task deleted')
+                      toast.success(t('taskDetailPage.taskDeleted'))
                       router.push(`/dashboard/${projectId}/tasks`)
                     } catch (e) {
                       toast.error(e instanceof Error ? e.message : 'Failed to delete task')
@@ -775,10 +781,10 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
                   }}
                 >
                   <Trash2 className="h-4 w-4" />
-                  Delete Task
+                  {t('taskDetailPage.deleteTask')}
                 </Button>
                 <p className="text-xs text-muted-foreground mt-2 text-center">
-                  This action cannot be undone
+                  {t('taskDetailPage.cannotBeUndone')}
                 </p>
               </CardContent>
             </Card>

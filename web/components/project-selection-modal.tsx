@@ -26,6 +26,7 @@ import { useAuth } from '@/lib/auth-context'
 import { fetchMyProjects } from '@/lib/api'
 import type { ProjectListItem } from '@/lib/api-types'
 import { roleLabels, statusColors } from '@/lib/domain'
+import { useLanguage } from '@/lib/language-context'
 
 interface ProjectSelectionModalProps {
   open: boolean
@@ -35,6 +36,7 @@ interface ProjectSelectionModalProps {
 export function ProjectSelectionModal({ open, onOpenChange }: ProjectSelectionModalProps) {
   const router = useRouter()
   const { user } = useAuth()
+  const { t } = useLanguage()
   const [projects, setProjects] = useState<ProjectListItem[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -82,10 +84,10 @@ export function ProjectSelectionModal({ open, onOpenChange }: ProjectSelectionMo
         <DialogHeader className="px-6 py-4 border-b border-border">
           <DialogTitle className="text-xl flex items-center gap-2">
             <Building2 className="h-5 w-5 text-primary" />
-            Select a Project
+            {t('projectModal.selectProject')}
           </DialogTitle>
           <DialogDescription>
-            Choose a project to open in your dashboard, or create a new one.
+            {t('projectModal.selectProjectDesc')}
           </DialogDescription>
         </DialogHeader>
 
@@ -93,7 +95,7 @@ export function ProjectSelectionModal({ open, onOpenChange }: ProjectSelectionMo
           <div className="space-y-2">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-medium text-sm text-muted-foreground">
-                Your Projects ({projects.length})
+                {t('projectModal.yourProjects').replace('{count}', String(projects.length))}
               </h3>
             </div>
 
@@ -110,8 +112,8 @@ export function ProjectSelectionModal({ open, onOpenChange }: ProjectSelectionMo
             {!loading && !error && projects.length === 0 && (
               <div className="text-center py-12 text-muted-foreground">
                 <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>{"You're not assigned to any projects yet."}</p>
-                <p className="text-sm mt-2">Create your first project to get started.</p>
+                <p>{t('projectModal.noProjects')}</p>
+                <p className="text-sm mt-2">{t('projectModal.createFirstProject')}</p>
               </div>
             )}
 
@@ -174,7 +176,7 @@ export function ProjectSelectionModal({ open, onOpenChange }: ProjectSelectionMo
                               <div className="flex items-center gap-2">
                                 <TrendingUp className="h-4 w-4 text-accent" />
                                 <span className="text-sm font-medium">
-                                  {progressPct.toFixed(1)}% complete
+                                  {progressPct.toFixed(1)}% {t('projectModal.complete')}
                                 </span>
                               </div>
                             </div>
@@ -206,7 +208,7 @@ export function ProjectSelectionModal({ open, onOpenChange }: ProjectSelectionMo
             variant="default"
           >
             <Plus className="h-5 w-5" />
-            Create New Project
+            {t('projectModal.createNewProject')}
           </Button>
         </div>
       </DialogContent>

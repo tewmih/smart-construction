@@ -21,6 +21,7 @@ import { getAccessToken } from '@/lib/auth-storage'
 import type { TaskListItem, TaskActivityItem, SupplierItem } from '@/lib/api-types'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
+import { useLanguage } from '@/lib/language-context'
 
 interface CreateLogPageProps {
     params: Promise<{ projectId: string }>
@@ -56,6 +57,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
     const { projectId } = use(params)
     const router = useRouter()
     const { user } = useAuth()
+    const { t } = useLanguage()
 
     const [tasks, setTasks] = useState<TaskListItem[]>([])
     const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set())
@@ -199,7 +201,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
 
         // Validate: max 5 files
         if (photos.length + files.length > 5) {
-            toast.error('Maximum 5 photos allowed')
+            toast.error(t('dailyLogPage.maxPhotosErr'))
             return
         }
 
@@ -209,12 +211,12 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
             const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
             if (!ALLOWED_TYPES.includes(file.type)) {
-                toast.error(`${file.name}: Invalid file type. Allowed: JPEG, PNG, WebP, GIF`)
+                toast.error(t('dailyLogPage.invalidPhotoType').replace('{name}', file.name))
                 continue
             }
 
             if (file.size > MAX_SIZE) {
-                toast.error(`${file.name}: File too large. Maximum 10MB`)
+                toast.error(t('dailyLogPage.photoTooLarge').replace('{name}', file.name))
                 continue
             }
 
@@ -225,7 +227,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
     }
 
     const handleClear = () => {
-        if (!confirm('Are you sure you want to clear all fields? This cannot be undone.')) {
+        if (!confirm(t('dailyLogPage.clearConfirm'))) {
             return
         }
 
@@ -267,17 +269,17 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
             idle_reason: ''
         }])
 
-        toast.success('All fields cleared')
+        toast.success(t('dailyLogPage.fieldsCleared'))
     }
 
     const handleCreate = async (saveAsDraft: boolean = false) => {
         if (selectedTaskIds.size === 0) {
-            toast.error('Please select at least one task')
+            toast.error(t('dailyLogPage.selectTaskErr'))
             return
         }
 
         if (!saveAsDraft && selectedActivities.size === 0) {
-            toast.error('Please select at least one activity from the selected tasks')
+            toast.error(t('dailyLogPage.selectActivityErr'))
             return
         }
 
@@ -398,14 +400,14 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                     })
                 } catch (e) {
                     console.error('Failed to upload photo:', e)
-                    toast.error(`Failed to upload ${photo.name}`)
+                    toast.error(t('dailyLogPage.photoUploadErr').replace('{name}', photo.name))
                 }
             }
 
-            toast.success(saveAsDraft ? 'Daily log saved as draft' : 'Daily log created successfully')
+            toast.success(saveAsDraft ? t('dailyLogPage.draftSuccess') : t('dailyLogPage.createSuccess'))
             router.push(`/dashboard/${projectId}/logs/${logId}`)
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : 'Failed to create log')
+            toast.error(e instanceof Error ? e.message : t('dailyLogPage.failedToCreate'))
         } finally {
             setCreating(false)
         }
@@ -426,8 +428,8 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <div>
-                    <h1 className="text-2xl font-bold">Create Daily Log</h1>
-                    <p className="text-sm text-muted-foreground">Record today's work progress and expenses</p>
+                    <h1 className="text-2xl font-bold">{t('dailyLogPage.title')}</h1>
+                    <p className="text-sm text-muted-foreground">{t('dailyLogPage.subtitle')}</p>
                 </div>
             </div>
 
@@ -436,12 +438,12 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                     {/* Task Selection */}
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Tasks Worked On Today *</CardTitle>
-                            <p className="text-sm text-muted-foreground">Select all tasks you worked on today</p>
+                            <CardTitle className="text-base">{t('dailyLogPage.tasksWorked')}</CardTitle>
+                            <p className="text-sm text-muted-foreground">{t('dailyLogPage.tasksWorkedDesc')}</p>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {tasks.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">No assigned tasks with activities</p>
+                                <p className="text-sm text-muted-foreground">{t('dailyLogPage.noAssignedTasks')}</p>
                             ) : (
                                 <div className="space-y-2 max-h-64 overflow-y-auto rounded-lg border p-3">
                                     {tasks.map((task) => (
@@ -476,8 +478,8 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
 
                             {selectedTaskIds.size > 0 && Array.from(allActivities.entries()).some(([_, activities]) => activities.length > 0) && (
                                 <div className="space-y-2">
-                                    <Label>Activities Completed Today *</Label>
-                                    <p className="text-xs text-muted-foreground">Select activities you completed from the selected tasks</p>
+                                    <Label>{t('dailyLogPage.activitiesCompleted')}</Label>
+                                    <p className="text-xs text-muted-foreground">{t('dailyLogPage.activitiesCompletedDesc')}</p>
                                     <div className="space-y-3 max-h-64 overflow-y-auto rounded-lg border p-3">
                                         {Array.from(allActivities.entries()).map(([taskId, activities]) => {
                                             if (!selectedTaskIds.has(taskId) || activities.length === 0) return null
@@ -519,7 +521,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                     {/* Human Resources */}
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
-                            <CardTitle className="text-base">Human Resources</CardTitle>
+                            <CardTitle className="text-base">{t('dailyLogPage.humanResources')}</CardTitle>
                             <Button
                                 type="button"
                                 variant="outline"
@@ -535,14 +537,16 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                 }])}
                             >
                                 <Plus className="h-3.5 w-3.5" />
-                                Add
+                                {t('dailyLogPage.add')}
                             </Button>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             {humanResources.map((entry, index) => (
                                 <div key={index} className="space-y-2 rounded-lg border p-3">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium">Entry {index + 1}</span>
+                                        <span className="text-sm font-medium">
+                                            {t('dailyLogPage.entry').replace('{index}', String(index + 1))}
+                                        </span>
                                         {humanResources.length > 1 && (
                                             <Button
                                                 type="button"
@@ -557,7 +561,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                     </div>
                                     <div className="grid gap-2">
                                         <Input
-                                            placeholder="Labor type (e.g., Mason, Carpenter, Laborer)"
+                                            placeholder={t('dailyLogPage.laborType')}
                                             value={entry.labor_type}
                                             onChange={(e) => {
                                                 const updated = [...humanResources]
@@ -567,11 +571,11 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                         />
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Worker Count</Label>
+                                                <Label className="text-xs text-muted-foreground">{t('dailyLogPage.workerCount')}</Label>
                                                 <Input
                                                     type="number"
                                                     min="1"
-                                                    placeholder="Workers"
+                                                    placeholder={t('dailyLogPage.workers')}
                                                     value={entry.worker_count}
                                                     onChange={(e) => {
                                                         const updated = [...humanResources]
@@ -581,11 +585,11 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                                 />
                                             </div>
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Hourly Rate (ETB)</Label>
+                                                <Label className="text-xs text-muted-foreground">{t('dailyLogPage.hourlyRate')}</Label>
                                                 <Input
                                                     type="number"
                                                     step="0.01"
-                                                    placeholder="Rate/hr"
+                                                    placeholder={t('dailyLogPage.rateHr')}
                                                     value={entry.hourly_rate}
                                                     onChange={(e) => {
                                                         const updated = [...humanResources]
@@ -597,11 +601,11 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Regular Hours</Label>
+                                                <Label className="text-xs text-muted-foreground">{t('dailyLogPage.regularHours')}</Label>
                                                 <Input
                                                     type="number"
                                                     step="0.5"
-                                                    placeholder="Hours"
+                                                    placeholder={t('dailyLogPage.hours')}
                                                     value={entry.hours_worked}
                                                     onChange={(e) => {
                                                         const updated = [...humanResources]
@@ -611,11 +615,11 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                                 />
                                             </div>
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Overtime Hours</Label>
+                                                <Label className="text-xs text-muted-foreground">{t('dailyLogPage.overtimeHours')}</Label>
                                                 <Input
                                                     type="number"
                                                     step="0.5"
-                                                    placeholder="OT Hours"
+                                                    placeholder={t('dailyLogPage.otHours')}
                                                     value={entry.overtime_hours}
                                                     onChange={(e) => {
                                                         const updated = [...humanResources]
@@ -626,11 +630,11 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                             </div>
                                         </div>
                                         <div>
-                                            <Label className="text-xs text-muted-foreground">Overtime Rate (ETB/hr, defaults to 1.5x if empty)</Label>
+                                            <Label className="text-xs text-muted-foreground">{t('dailyLogPage.overtimeRate')}</Label>
                                             <Input
                                                 type="number"
                                                 step="0.01"
-                                                placeholder="OT Rate (optional)"
+                                                placeholder={t('dailyLogPage.otRateOpt')}
                                                 value={entry.overtime_rate}
                                                 onChange={(e) => {
                                                     const updated = [...humanResources]
@@ -640,13 +644,13 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                             />
                                         </div>
                                         <div className="text-right text-sm font-medium pt-2 border-t">
-                                            Total: ETB {calculateHumanResourceTotal(entry).toLocaleString()}
+                                            {t('dailyLogPage.total').replace('{amount}', calculateHumanResourceTotal(entry).toLocaleString())}
                                         </div>
                                     </div>
                                 </div>
                             ))}
                             <div className="text-right text-base font-semibold pt-2 border-t">
-                                Human Resources Total: ETB {totalHumanResourceCost.toLocaleString()}
+                                {t('dailyLogPage.hrTotal').replace('{amount}', totalHumanResourceCost.toLocaleString())}
                             </div>
                         </CardContent>
                     </Card>
@@ -654,7 +658,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                     {/* Materials */}
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
-                            <CardTitle className="text-base">Materials</CardTitle>
+                            <CardTitle className="text-base">{t('dailyLogPage.materials')}</CardTitle>
                             <Button
                                 type="button"
                                 variant="outline"
@@ -670,14 +674,16 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                 }])}
                             >
                                 <Plus className="h-3.5 w-3.5" />
-                                Add
+                                {t('dailyLogPage.add')}
                             </Button>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             {materials.map((entry, index) => (
                                 <div key={index} className="space-y-2 rounded-lg border p-3">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium">Entry {index + 1}</span>
+                                        <span className="text-sm font-medium">
+                                            {t('dailyLogPage.entry').replace('{index}', String(index + 1))}
+                                        </span>
                                         {materials.length > 1 && (
                                             <Button
                                                 type="button"
@@ -692,7 +698,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                     </div>
                                     <div className="grid gap-2">
                                         <div>
-                                            <Label className="text-xs text-muted-foreground">Supplier (Optional)</Label>
+                                            <Label className="text-xs text-muted-foreground">{t('dailyLogPage.supplier')}</Label>
                                             <Select
                                                 value={entry.supplier_id || 'none'}
                                                 onValueChange={(value) => {
@@ -702,10 +708,10 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                                 }}
                                             >
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Select supplier" />
+                                                    <SelectValue placeholder={t('dailyLogPage.selectSupplier')} />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="none">No supplier</SelectItem>
+                                                    <SelectItem value="none">{t('dailyLogPage.noSupplier')}</SelectItem>
                                                     {suppliers.map((s) => (
                                                         <SelectItem key={s.id} value={s.id}>
                                                             {s.name} {s.role ? `(${s.role})` : ''}
@@ -715,7 +721,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                             </Select>
                                         </div>
                                         <Input
-                                            placeholder="Material type (e.g., Cement, Reinforcement Bar, Sand)"
+                                            placeholder={t('dailyLogPage.materialType')}
                                             value={entry.material_type}
                                             onChange={(e) => {
                                                 const updated = [...materials]
@@ -725,11 +731,11 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                         />
                                         <div className="grid grid-cols-3 gap-2">
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Quantity</Label>
+                                                <Label className="text-xs text-muted-foreground">{t('dailyLogPage.quantity')}</Label>
                                                 <Input
                                                     type="number"
                                                     step="0.001"
-                                                    placeholder="Qty"
+                                                    placeholder={t('dailyLogPage.qty')}
                                                     value={entry.quantity}
                                                     onChange={(e) => {
                                                         const updated = [...materials]
@@ -739,7 +745,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                                 />
                                             </div>
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Unit</Label>
+                                                <Label className="text-xs text-muted-foreground">{t('dailyLogPage.unit')}</Label>
                                                 <select
                                                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                                     value={entry.unit}
@@ -759,11 +765,11 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                                 </select>
                                             </div>
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Unit Cost (ETB)</Label>
+                                                <Label className="text-xs text-muted-foreground">{t('dailyLogPage.unitCost')}</Label>
                                                 <Input
                                                     type="number"
                                                     step="0.01"
-                                                    placeholder="Cost"
+                                                    placeholder={t('dailyLogPage.cost')}
                                                     value={entry.unit_cost}
                                                     onChange={(e) => {
                                                         const updated = [...materials]
@@ -774,7 +780,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                             </div>
                                         </div>
                                         <div>
-                                            <Label className="text-xs text-muted-foreground">Delivery Date</Label>
+                                            <Label className="text-xs text-muted-foreground">{t('dailyLogPage.deliveryDate')}</Label>
                                             <Input
                                                 type="date"
                                                 value={entry.delivery_date}
@@ -786,13 +792,13 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                             />
                                         </div>
                                         <div className="text-right text-sm font-medium pt-2 border-t">
-                                            Total: ETB {calculateMaterialTotal(entry).toLocaleString()}
+                                            {t('dailyLogPage.total').replace('{amount}', calculateMaterialTotal(entry).toLocaleString())}
                                         </div>
                                     </div>
                                 </div>
                             ))}
                             <div className="text-right text-base font-semibold pt-2 border-t">
-                                Materials Total: ETB {totalMaterialCost.toLocaleString()}
+                                {t('dailyLogPage.materialsTotal').replace('{amount}', totalMaterialCost.toLocaleString())}
                             </div>
                         </CardContent>
                     </Card>
@@ -800,7 +806,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                     {/* Equipment */}
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
-                            <CardTitle className="text-base">Equipment</CardTitle>
+                            <CardTitle className="text-base">{t('dailyLogPage.equipment')}</CardTitle>
                             <Button
                                 type="button"
                                 variant="outline"
@@ -817,14 +823,16 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                 }])}
                             >
                                 <Plus className="h-3.5 w-3.5" />
-                                Add
+                                {t('dailyLogPage.add')}
                             </Button>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             {equipment.map((entry, index) => (
                                 <div key={index} className="space-y-2 rounded-lg border p-3">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium">Entry {index + 1}</span>
+                                        <span className="text-sm font-medium">
+                                            {t('dailyLogPage.entry').replace('{index}', String(index + 1))}
+                                        </span>
                                         {equipment.length > 1 && (
                                             <Button
                                                 type="button"
@@ -839,7 +847,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                     </div>
                                     <div className="grid gap-2">
                                         <Input
-                                            placeholder="Equipment type (e.g., Excavator, Crane, Mixer)"
+                                            placeholder={t('dailyLogPage.equipmentType')}
                                             value={entry.type}
                                             onChange={(e) => {
                                                 const updated = [...equipment]
@@ -849,11 +857,11 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                         />
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Quantity</Label>
+                                                <Label className="text-xs text-muted-foreground">{t('dailyLogPage.quantity')}</Label>
                                                 <Input
                                                     type="number"
                                                     min="1"
-                                                    placeholder="Qty"
+                                                    placeholder={t('dailyLogPage.qty')}
                                                     value={entry.quantity}
                                                     onChange={(e) => {
                                                         const updated = [...equipment]
@@ -863,7 +871,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                                 />
                                             </div>
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Start Time</Label>
+                                                <Label className="text-xs text-muted-foreground">{t('dailyLogPage.startTime')}</Label>
                                                 <Input
                                                     type="time"
                                                     value={entry.start_time}
@@ -877,11 +885,11 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Operation Time (hrs/trips)</Label>
+                                                <Label className="text-xs text-muted-foreground">{t('dailyLogPage.operationTime')}</Label>
                                                 <Input
                                                     type="number"
                                                     step="0.5"
-                                                    placeholder="Hours or trips"
+                                                    placeholder={t('dailyLogPage.hoursTrips')}
                                                     value={entry.operation_time}
                                                     onChange={(e) => {
                                                         const updated = [...equipment]
@@ -891,11 +899,11 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                                 />
                                             </div>
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Cost per Unit (ETB)</Label>
+                                                <Label className="text-xs text-muted-foreground">{t('dailyLogPage.costUnit')}</Label>
                                                 <Input
                                                     type="number"
                                                     step="0.01"
-                                                    placeholder="Cost/hr or /trip"
+                                                    placeholder={t('dailyLogPage.costHrTrip')}
                                                     value={entry.cost_per_unit}
                                                     onChange={(e) => {
                                                         const updated = [...equipment]
@@ -907,11 +915,11 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                         </div>
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Idle Hours (Optional)</Label>
+                                                <Label className="text-xs text-muted-foreground">{t('dailyLogPage.idleHours')}</Label>
                                                 <Input
                                                     type="number"
                                                     step="0.5"
-                                                    placeholder="Idle hours"
+                                                    placeholder={t('dailyLogPage.idleHoursPlaceholder')}
                                                     value={entry.idle_hours}
                                                     onChange={(e) => {
                                                         const updated = [...equipment]
@@ -921,9 +929,9 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                                 />
                                             </div>
                                             <div>
-                                                <Label className="text-xs text-muted-foreground">Idle Reason (Optional)</Label>
+                                                <Label className="text-xs text-muted-foreground">{t('dailyLogPage.idleReason')}</Label>
                                                 <Input
-                                                    placeholder="e.g., Maintenance, Weather"
+                                                    placeholder={t('dailyLogPage.idleReasonPlaceholder')}
                                                     value={entry.idle_reason}
                                                     onChange={(e) => {
                                                         const updated = [...equipment]
@@ -934,13 +942,13 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                             </div>
                                         </div>
                                         <div className="text-right text-sm font-medium pt-2 border-t">
-                                            Total: ETB {calculateEquipmentTotal(entry).toLocaleString()}
+                                            {t('dailyLogPage.total').replace('{amount}', calculateEquipmentTotal(entry).toLocaleString())}
                                         </div>
                                     </div>
                                 </div>
                             ))}
                             <div className="text-right text-base font-semibold pt-2 border-t">
-                                Equipment Total: ETB {totalEquipmentCost.toLocaleString()}
+                                {t('dailyLogPage.equipmentTotal').replace('{amount}', totalEquipmentCost.toLocaleString())}
                             </div>
                         </CardContent>
                     </Card>
@@ -948,13 +956,13 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                     {/* Remarks and Photos - Moved to bottom */}
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Remarks & Photos</CardTitle>
+                            <CardTitle className="text-base">{t('dailyLogPage.remarksPhotos')}</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-2">
-                                <Label>Notes / Remarks</Label>
+                                <Label>{t('dailyLogPage.remarks')}</Label>
                                 <Textarea
-                                    placeholder="Additional notes, issues, or observations..."
+                                    placeholder={t('dailyLogPage.remarksPlaceholder')}
                                     value={notes}
                                     onChange={(e) => setNotes(e.target.value)}
                                     rows={3}
@@ -962,7 +970,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                             </div>
 
                             <div className="space-y-2">
-                                <Label>Photos</Label>
+                                <Label>{t('dailyLogPage.photos')}</Label>
                                 <div className="space-y-2">
                                     <input
                                         type="file"
@@ -976,7 +984,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                         <Button type="button" variant="outline" className="w-full gap-2" asChild>
                                             <span>
                                                 <Upload className="h-4 w-4" />
-                                                Upload Photos (Max 5, 10MB each)
+                                                {t('dailyLogPage.uploadPhotos')}
                                             </span>
                                         </Button>
                                     </label>
@@ -1012,40 +1020,70 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                 <div className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base">Summary</CardTitle>
+                            <CardTitle className="text-base">{t('dailyLogPage.summary')}</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             <div className="space-y-2 text-sm">
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Human Resources</span>
+                                    <span className="text-muted-foreground">{t('dailyLogPage.humanResources')}</span>
                                     <span className="font-medium">ETB {totalHumanResourceCost.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Materials</span>
+                                    <span className="text-muted-foreground">{t('dailyLogPage.materials')}</span>
                                     <span className="font-medium">ETB {totalMaterialCost.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Equipment</span>
+                                    <span className="text-muted-foreground">{t('dailyLogPage.equipment')}</span>
                                     <span className="font-medium">ETB {totalEquipmentCost.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between pt-2 border-t text-base">
-                                    <span className="font-semibold">Total Expense</span>
+                                    <span className="font-semibold">{t('dailyLogPage.grandTotal')}</span>
                                     <span className="font-bold">ETB {grandTotal.toLocaleString()}</span>
                                 </div>
                             </div>
 
                             <div className="space-y-2 pt-2 border-t text-sm">
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Tasks</span>
-                                    <span className="font-medium">{selectedTaskIds.size} selected</span>
+                                    <span className="text-muted-foreground">
+                                        {t('dailyLogPage.tasksCount').split('(')[0].trim()}
+                                    </span>
+                                    <span className="font-medium">
+                                        {t('dailyLogPage.tasksCount')
+                                            .replace('Tasks', '')
+                                            .replace('ስራዎች', '')
+                                            .replace('{count}', String(selectedTaskIds.size))
+                                            .replace('(', '')
+                                            .replace(')', '')
+                                            .trim()}
+                                    </span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Activities</span>
-                                    <span className="font-medium">{selectedActivities.size} selected</span>
+                                    <span className="text-muted-foreground">
+                                        {t('dailyLogPage.activitiesCount').split('(')[0].trim()}
+                                    </span>
+                                    <span className="font-medium">
+                                        {t('dailyLogPage.activitiesCount')
+                                            .replace('Activities', '')
+                                            .replace('ክንዋኔዎች', '')
+                                            .replace('{count}', String(selectedActivities.size))
+                                            .replace('(', '')
+                                            .replace(')', '')
+                                            .trim()}
+                                    </span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Photos</span>
-                                    <span className="font-medium">{photos.length} attached</span>
+                                    <span className="text-muted-foreground">
+                                        {t('dailyLogPage.photosCount').split('(')[0].trim()}
+                                    </span>
+                                    <span className="font-medium">
+                                        {t('dailyLogPage.photosCount')
+                                            .replace('Photos', '')
+                                            .replace('ፎቶዎች', '')
+                                            .replace('{count}', String(photos.length))
+                                            .replace('(', '')
+                                            .replace(')', '')
+                                            .trim()}
+                                    </span>
                                 </div>
                             </div>
 
@@ -1055,7 +1093,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                 disabled={creating || selectedTaskIds.size === 0 || selectedActivities.size === 0}
                             >
                                 {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                Save as Draft
+                                {t('dailyLogPage.saveDraft')}
                             </Button>
 
                             <Button
@@ -1064,7 +1102,7 @@ export default function CreateLogPage({ params }: CreateLogPageProps) {
                                 onClick={handleClear}
                                 disabled={creating}
                             >
-                                Clear
+                                {t('dailyLogPage.clear')}
                             </Button>
 
                         </CardContent>

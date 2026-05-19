@@ -48,15 +48,16 @@ import type { TaskListItem, EnrichedMemberRow } from '@/lib/api-types'
 import type { TaskStatus } from '@/lib/domain'
 import { createTask, updateTask, listProjectTasks, listProjectMembersEnriched, addTaskActivity } from '@/lib/api'
 import { toast } from 'sonner'
+import { useLanguage } from '@/lib/language-context'
 
 interface TasksPageProps {
   params: Promise<{ projectId: string }>
 }
 
-const statusConfig: Record<TaskStatus, { label: string; className: string }> = {
-  pending: { label: 'Pending', className: 'bg-slate-100 text-slate-700' },
-  in_progress: { label: 'In Progress', className: 'bg-blue-100 text-blue-700' },
-  completed: { label: 'Completed', className: 'bg-emerald-100 text-emerald-700' },
+const statusConfig: Record<TaskStatus, { labelKey: string; className: string }> = {
+  pending: { labelKey: 'tasksPage.pending', className: 'bg-slate-100 text-slate-700' },
+  in_progress: { labelKey: 'tasksPage.inProgress', className: 'bg-blue-100 text-blue-700' },
+  completed: { labelKey: 'tasksPage.completed', className: 'bg-emerald-100 text-emerald-700' },
 }
 
 const PAGE_SIZE = 4
@@ -78,6 +79,7 @@ function estimateHours(start?: string | null, end?: string | null) {
 export default function TasksPage({ params }: TasksPageProps) {
   const { projectId } = use(params)
   const userRole = useProjectRole()
+  const { t } = useLanguage()
   const { user } = useAuth()
 
   const [projectTasks, setProjectTasks] = useState<TaskListItem[]>([])
@@ -137,11 +139,11 @@ export default function TasksPage({ params }: TasksPageProps) {
 
   const handleCreateTask = async () => {
     if (!newTaskName.trim()) {
-      toast.error('Task name is required')
+      toast.error(t('tasksPage.taskNameRequired'))
       return
     }
     if (!newTaskWeight || Number(newTaskWeight) <= 0) {
-      toast.error('Weight is required and must be greater than 0')
+      toast.error(t('tasksPage.weightRequired'))
       return
     }
 
@@ -151,14 +153,19 @@ export default function TasksPage({ params }: TasksPageProps) {
     const totalWeight = existingWeight + newWeight
 
     if (totalWeight > 100) {
-      toast.error(`Total task weight cannot exceed 100%. Current: ${existingWeight.toFixed(1)}%, Adding: ${newWeight.toFixed(1)}%, Total would be: ${totalWeight.toFixed(1)}%`)
+      toast.error(
+        t('tasksPage.weightExceedErr')
+          .replace('{current}', existingWeight.toFixed(1))
+          .replace('{adding}', newWeight.toFixed(1))
+          .replace('{total}', totalWeight.toFixed(1))
+      )
       return
     }
 
     // Validate activities - only require name, percentage is optional
     const activitiesWithNames = newTaskActivities.filter(a => a.name.trim())
     if (activitiesWithNames.length === 0) {
-      toast.error('At least one activity is required')
+      toast.error(t('tasksPage.activityRequired'))
       return
     }
 
@@ -185,7 +192,7 @@ export default function TasksPage({ params }: TasksPageProps) {
     // 5. Validate total is 100% (with small tolerance for rounding)
     const totalPercentage = finalActivities.reduce((sum, a) => sum + a.percentage, 0)
     if (Math.abs(totalPercentage - 100) > 0.1) {
-      toast.error(`Activity percentages must sum to 100% (current: ${totalPercentage.toFixed(1)}%). Please adjust custom percentages.`)
+      toast.error(t('tasksPage.activitySumErr').replace('{current}', totalPercentage.toFixed(1)))
       return
     }
 
@@ -225,9 +232,9 @@ export default function TasksPage({ params }: TasksPageProps) {
       setNewTaskDependsOn(null)
       setNewTaskActivities([{ name: '', percentage: '' }])
       await loadTasks()
-      toast.success('Task created with activities')
+      toast.success(t('tasksPage.createdSuccess'))
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to create task'
+      const msg = err instanceof Error ? err.message : t('tasksPage.failedToCreate')
       setCreateError(msg)
       toast.error(msg)
     } finally {
@@ -259,10 +266,10 @@ export default function TasksPage({ params }: TasksPageProps) {
   const remainingWeight = Math.max(0, 100 - totalUsedWeight)
 
   const statusChipLabel: Record<(typeof statusFilters)[number], string> = {
-    all: 'All',
-    completed: 'Completed',
-    in_progress: 'In Progress',
-    pending: 'Pending',
+    all: t('auditLogsPage.all'),
+    completed: t('tasksPage.completed'),
+    in_progress: t('tasksPage.inProgress'),
+    pending: t('tasksPage.pending'),
   }
 
   const statusChipClass: Record<(typeof statusFilters)[number], string> = {
@@ -284,8 +291,8 @@ export default function TasksPage({ params }: TasksPageProps) {
     <div className="space-y-5 px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Task Management</h1>
-          <p className="text-sm text-muted-foreground">Real-time oversight of site engineering operations</p>
+          <h1 className="text-3xl font-semibold tracking-tight">{t('tasksPage.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('tasksPage.subtitle')}</p>
         </div>
 
         {canCreateTask && (
@@ -293,30 +300,30 @@ export default function TasksPage({ params }: TasksPageProps) {
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="h-4 w-4" />
-                Create Task
+                {t('tasksPage.createTask')}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create New Task</DialogTitle>
+                <DialogTitle>{t('tasksPage.createNewTask')}</DialogTitle>
                 <DialogDescription>
-                  Add a task for this project.
+                  {t('tasksPage.addTaskDesc')}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="grid gap-4 py-2 max-h-[60vh] overflow-y-auto pr-2">
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium" htmlFor="task-name">Task name *</label>
+                  <label className="text-sm font-medium" htmlFor="task-name">{t('tasksPage.taskName')}</label>
                   <Input
                     id="task-name"
-                    placeholder="Enter task name"
+                    placeholder={t('tasksPage.taskNamePlaceholder')}
                     value={newTaskName}
                     onChange={(e) => setNewTaskName(e.target.value)}
                   />
                 </div>
 
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium">Depends on (optional)</label>
+                  <label className="text-sm font-medium">{t('tasksPage.dependsOn')}</label>
                   <select
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     value={newTaskDependsOn ?? ''}
@@ -337,7 +344,7 @@ export default function TasksPage({ params }: TasksPageProps) {
                       }
                     }}
                   >
-                    <option value="">No dependency</option>
+                    <option value="">{t('tasksPage.noDependency')}</option>
                     {projectTasks
                       .filter(t => t.status !== 'completed')
                       .map(t => (
@@ -350,7 +357,7 @@ export default function TasksPage({ params }: TasksPageProps) {
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="grid gap-2">
-                    <label className="text-sm font-medium" htmlFor="task-start">Start date</label>
+                    <label className="text-sm font-medium" htmlFor="task-start">{t('tasksPage.startDate')}</label>
                     <Input
                       id="task-start"
                       type="date"
@@ -359,7 +366,7 @@ export default function TasksPage({ params }: TasksPageProps) {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <label className="text-sm font-medium" htmlFor="task-duration">Duration (days) *</label>
+                    <label className="text-sm font-medium" htmlFor="task-duration">{t('tasksPage.duration')}</label>
                     <Input
                       id="task-duration"
                       type="number"
@@ -374,9 +381,9 @@ export default function TasksPage({ params }: TasksPageProps) {
 
                 <div className="grid gap-2">
                   <label className="text-sm font-medium" htmlFor="task-weight">
-                    Weight (%) *
+                    {t('tasksPage.weight')}
                     <span className="ml-1 text-xs text-muted-foreground">
-                      ({remainingWeight.toFixed(1)}% remaining)
+                      {t('tasksPage.remaining').replace('{count}', remainingWeight.toFixed(1))}
                     </span>
                   </label>
                   <Input
@@ -390,12 +397,12 @@ export default function TasksPage({ params }: TasksPageProps) {
                     onChange={(e) => setNewTaskWeight(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Task importance out of 100%. Total must equal 100%.
+                    {t('tasksPage.weightDesc')}
                   </p>
                 </div>
 
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium">Assign to</label>
+                  <label className="text-sm font-medium">{t('tasksPage.assignTo')}</label>
                   <Popover open={assigneePopoverOpen} onOpenChange={setAssigneePopoverOpen}>
                     <PopoverTrigger asChild>
                       <Button variant="outline" type="button" className="justify-start gap-2 font-normal">
@@ -412,7 +419,7 @@ export default function TasksPage({ params }: TasksPageProps) {
                         ) : (
                           <>
                             <UserCircle2 className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">Unassigned</span>
+                            <span className="text-muted-foreground">{t('tasksPage.unassigned')}</span>
                           </>
                         )}
                       </Button>
@@ -424,7 +431,7 @@ export default function TasksPage({ params }: TasksPageProps) {
                         onClick={() => { setNewTaskAssignee(null); setAssigneePopoverOpen(false) }}
                       >
                         <UserCircle2 className="h-6 w-6 text-muted-foreground" />
-                        <span>Unassigned</span>
+                        <span>{t('tasksPage.unassigned')}</span>
                       </button>
                       <div className="max-h-48 overflow-y-auto">
                         {members.map((m) => {
@@ -452,12 +459,12 @@ export default function TasksPage({ params }: TasksPageProps) {
                 </div>
 
                 <div className="grid gap-2">
-                  <label className="text-sm font-medium">Activities * (percentages auto-distribute if not specified)</label>
+                  <label className="text-sm font-medium">{t('tasksPage.activities')}</label>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {newTaskActivities.map((activity, index) => (
                       <div key={index} className="flex gap-2">
                         <Input
-                          placeholder="Activity name"
+                          placeholder={t('tasksPage.activityName')}
                           value={activity.name}
                           onChange={(e) => {
                             const updated = [...newTaskActivities]
@@ -511,10 +518,13 @@ export default function TasksPage({ params }: TasksPageProps) {
 
                         return (
                           <div>
-                            <p>Total: {total.toFixed(1)}%</p>
+                            <p>{t('tasksPage.total').replace('{pct}', total.toFixed(1))}</p>
                             {activitiesWithoutPercent.length > 0 && (
                               <p className="text-[10px] text-emerald-600">
-                                Auto: {activitiesWithoutPercent.length} × {equalShare.toFixed(1)}% = {autoTotal.toFixed(1)}%
+                                {t('tasksPage.auto')
+                                  .replace('{count}', String(activitiesWithoutPercent.length))
+                                  .replace('{pct}', equalShare.toFixed(1))
+                                  .replace('{total}', autoTotal.toFixed(1))}
                               </p>
                             )}
                           </div>
@@ -529,7 +539,7 @@ export default function TasksPage({ params }: TasksPageProps) {
                       onClick={() => setNewTaskActivities([...newTaskActivities, { name: '', percentage: '' }])}
                     >
                       <Plus className="h-3 w-3" />
-                      Add Activity
+                      {t('tasksPage.addActivity')}
                     </Button>
                   </div>
                 </div>
@@ -540,10 +550,10 @@ export default function TasksPage({ params }: TasksPageProps) {
               </div>
 
               <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t">
-                <Button variant="outline" onClick={() => setNewTaskOpen(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => setNewTaskOpen(false)}>{t('tasksPage.cancel')}</Button>
                 <Button onClick={handleCreateTask} disabled={creating || !newTaskName.trim() || !newTaskWeight} className="gap-2">
                   {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  Create Task
+                  {t('tasksPage.createTask')}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -553,19 +563,19 @@ export default function TasksPage({ params }: TasksPageProps) {
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" onClick={() => { setStatusFilter('all'); setSearchQuery('') }}>
-          Clear Filters
+          {t('tasksPage.clearFilters')}
         </Button>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardContent className="space-y-2 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Scope Coverage</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('tasksPage.scopeCoverage')}</p>
             <p className="text-4xl font-semibold leading-none">{totalUsedWeight.toFixed(1)}<span className="text-lg text-muted-foreground">%</span></p>
             <div className="space-y-1">
               <Progress value={totalUsedWeight} className="h-2" />
               <p className="text-xs text-muted-foreground">
-                {remainingWeight.toFixed(1)}% of project scope not yet in a task
+                {t('tasksPage.notInTask').replace('{pct}', remainingWeight.toFixed(1))}
               </p>
             </div>
           </CardContent>
@@ -574,30 +584,30 @@ export default function TasksPage({ params }: TasksPageProps) {
         <Card>
           <CardContent className="space-y-2 p-4">
             <div className="flex items-center justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">In Progress</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('tasksPage.inProgress')}</p>
               <Circle className="h-2 w-2 fill-blue-600 text-blue-600" />
             </div>
             <p className="text-4xl font-semibold leading-none">{inProgressCount.toString().padStart(2, '0')}</p>
-            <p className="text-xs text-blue-700">Active engineering cycle</p>
+            <p className="text-xs text-blue-700">{t('tasksPage.activeCycle')}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="space-y-2 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Pending</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('tasksPage.pending')}</p>
             <p className="text-4xl font-semibold leading-none text-amber-600">{pendingCount.toString().padStart(2, '0')}</p>
             <p className="flex items-center gap-1 text-xs text-amber-600">
               <TriangleAlert className="h-3.5 w-3.5" />
-              Awaiting start
+              {t('tasksPage.awaitingStart')}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="space-y-2 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Completed</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('tasksPage.completed')}</p>
             <p className="text-4xl font-semibold leading-none">{completedCount.toString().padStart(2, '0')}</p>
-            <p className="text-xs text-emerald-700">Done</p>
+            <p className="text-xs text-emerald-700">{t('tasksPage.done')}</p>
           </CardContent>
         </Card>
       </div>
@@ -631,7 +641,7 @@ export default function TasksPage({ params }: TasksPageProps) {
                     setSearchQuery(event.target.value)
                     setPage(1)
                   }}
-                  placeholder="Search task details"
+                  placeholder={t('tasksPage.searchPlaceholder')}
                   className="h-9 pl-9"
                 />
               </div>
@@ -641,21 +651,21 @@ export default function TasksPage({ params }: TasksPageProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Task Details</TableHead>
-                <TableHead>Assignee</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Completion</TableHead>
-                <TableHead>Weight (%)</TableHead>
-                <TableHead>Activities</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t('tasksPage.taskDetails')}</TableHead>
+                <TableHead>{t('tasksPage.assignee')}</TableHead>
+                <TableHead>{t('tasksPage.status')}</TableHead>
+                <TableHead>{t('tasksPage.durationLabel')}</TableHead>
+                <TableHead>{t('tasksPage.completion')}</TableHead>
+                <TableHead>{t('tasksPage.weightLabel')}</TableHead>
+                <TableHead>{t('tasksPage.activitiesLabel')}</TableHead>
+                <TableHead className="text-right">{t('tasksPage.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {pageTasks.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
-                    No tasks found for current filter.
+                    {t('tasksPage.noTasks')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -687,7 +697,7 @@ export default function TasksPage({ params }: TasksPageProps) {
                               ) : (
                                 <>
                                   <UserCircle2 className="h-5 w-5 text-muted-foreground" />
-                                  <span className="text-sm text-muted-foreground">Unassigned</span>
+                                  <span className="text-sm text-muted-foreground">{t('tasksPage.unassigned')}</span>
                                 </>
                               )}
                             </button>
@@ -698,17 +708,17 @@ export default function TasksPage({ params }: TasksPageProps) {
                               className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-muted"
                               onClick={async () => {
                                 try {
-                                  const updated = await updateTask(task.id, {})
+                                  await updateTask(task.id, {})
                                   // Update in-place to avoid reorder
                                   setProjectTasks(prev => prev.map(t => t.id === task.id ? { ...t, assigned_to: null, assignee: null } : t))
-                                  toast.success('Task unassigned')
+                                  toast.success(t('tasksPage.unassignedSuccess'))
                                 } catch (e) {
-                                  toast.error(e instanceof Error ? e.message : 'Failed to unassign')
+                                  toast.error(e instanceof Error ? e.message : t('tasksPage.failedToUnassign'))
                                 }
                               }}
                             >
                               <UserCircle2 className="h-6 w-6 text-muted-foreground" />
-                              <span>Unassigned</span>
+                              <span>{t('tasksPage.unassigned')}</span>
                             </button>
                             <div className="max-h-48 overflow-y-auto">
                               {members.map((m) => {
@@ -723,9 +733,9 @@ export default function TasksPage({ params }: TasksPageProps) {
                                         await updateTask(task.id, { assigned_to: m.user.id })
                                         // Update in-place to avoid reorder
                                         setProjectTasks(prev => prev.map(t => t.id === task.id ? { ...t, assigned_to: m.user.id, assignee: { id: m.user.id, full_name: m.user.full_name, email: m.user.email || '' } } : t))
-                                        toast.success(`Assigned to ${m.user.full_name}`)
+                                        toast.success(t('tasksPage.assignedTo').replace('{name}', m.user.full_name))
                                       } catch (e) {
-                                        toast.error(e instanceof Error ? e.message : 'Failed to assign')
+                                        toast.error(e instanceof Error ? e.message : t('tasksPage.failedToAssign'))
                                       }
                                     }}
                                   >
@@ -746,12 +756,12 @@ export default function TasksPage({ params }: TasksPageProps) {
 
                       <TableCell>
                         <Badge className={statusConfig[task.status]?.className ?? 'bg-slate-100 text-slate-700'}>
-                          {statusConfig[task.status]?.label ?? task.status}
+                          {t(statusConfig[task.status]?.labelKey) ?? task.status}
                         </Badge>
                       </TableCell>
 
                       <TableCell>
-                        <p className="text-sm">{durationDays > 0 ? `${durationDays} days` : '—'}</p>
+                        <p className="text-sm">{durationDays > 0 ? `${durationDays} ${t('tasksPage.days')}` : '—'}</p>
                         {task.start_date && task.end_date && (
                           <p className="text-xs text-muted-foreground">
                             {new Date(task.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(task.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -785,7 +795,7 @@ export default function TasksPage({ params }: TasksPageProps) {
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" asChild>
                             <a href={`/dashboard/${projectId}/tasks/${task.id}`}>
-                              View <ArrowUpRight className="h-3.5 w-3.5" />
+                              {t('tasksPage.view')} <ArrowUpRight className="h-3.5 w-3.5" />
                             </a>
                           </Button>
                         </div>
@@ -799,7 +809,10 @@ export default function TasksPage({ params }: TasksPageProps) {
 
           <div className="flex flex-col gap-3 border-t border-border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
             <p className="text-muted-foreground">
-              Showing {Math.min(filteredTasks.length, pageStart + 1)} to {Math.min(filteredTasks.length, pageStart + PAGE_SIZE)} of {filteredTasks.length} tasks
+              {t('tasksPage.showingTasks')
+                .replace('{start}', String(Math.min(filteredTasks.length, pageStart + 1)))
+                .replace('{end}', String(Math.min(filteredTasks.length, pageStart + PAGE_SIZE)))
+                .replace('{total}', String(filteredTasks.length))}
             </p>
 
             <div className="flex items-center gap-1">
